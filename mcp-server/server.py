@@ -106,6 +106,52 @@ def docs_topic(topic: str) -> str:
     return result
 
 
+# ── Prompts ──────────────────────────────────────────────────────────────────
+
+
+@mcp.prompt()
+def integrate_gravity_ads(framework: str = "fastapi", format: str = "card") -> str:
+    """Step-by-step guide to integrate Gravity ads into a publisher's app."""
+    return f"""\
+You are helping a publisher integrate Gravity ads into their {framework} application.
+
+Follow these steps:
+
+1. **Discover formats** — Call the `search_formats` tool with `detail="summary"` to show
+   the publisher what ad formats are available. If they already chose "{format}", skip to step 2.
+
+2. **Generate code** — Call `generate_code` with:
+   - `format="{format}"`
+   - `framework="{framework}"`
+   - `streaming=True` (or False if the publisher uses JSON responses)
+   - `theme="dark"` if the publisher has a dark UI
+
+   This returns paired server + client code with a unique `placement_id`.
+
+3. **Apply customizations** — If the publisher wants custom styling, use the
+   `gravity://docs/styling` resource for the full slotProps API reference.
+   Modify the `<GravityAd>` component's `style` and `slotProps` props accordingly.
+
+4. **Verify integration** — Read the `gravity://docs/checklist` resource and walk through
+   each item with the publisher:
+   - API key is set (GRAVITY_API_KEY env var)
+   - Server-side fetch (not client-side)
+   - gravityContext() sent from client
+   - impUrl fires on ad visibility
+   - clickUrl used for ad links (not url)
+   - production: true when ready to go live
+
+5. **Troubleshoot** — If the publisher reports issues, call the `troubleshoot` tool with
+   their symptom description to get a diagnosis.
+
+Important:
+- The `getAds()` / `get_ads()` function **never throws** — it returns an empty array on failure.
+- Start the ad request early (before/alongside the LLM stream), await it after streaming completes.
+- Always use `ad.clickUrl` for links, not `ad.url`.
+- Fire `ad.impUrl` within 5 minutes of receiving the ad.
+"""
+
+
 # ── Health ───────────────────────────────────────────────────────────────────
 
 
