@@ -1,0 +1,7 @@
+services:
+  gravity-mcp:
+    build: ./mcp-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./mcp-server/data:/app/data
