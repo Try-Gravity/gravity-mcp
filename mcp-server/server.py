@@ -11,6 +11,7 @@ from starlette.responses import PlainTextResponse
 from resources.docs import get_doc_topic, get_format_detail, get_formats_index
 from tools.generate_code import generate_code as _generate_code
 from tools.search_formats import search_formats as _search_formats
+from tools.troubleshoot import troubleshoot as _troubleshoot
 
 mcp = FastMCP(
     "Gravity Ads Integration",
@@ -65,6 +66,16 @@ def generate_code(
         theme=theme,
         customizations=customizations,
     )
+
+
+@mcp.tool()
+def troubleshoot(symptom: str) -> dict:
+    """Diagnose a Gravity ad integration issue.
+
+    Args:
+        symptom: Description of the problem (e.g. "no ads showing", "401", "CORS error").
+    """
+    return _troubleshoot(symptom=symptom)
 
 
 # ── Resources ────────────────────────────────────────────────────────────────
