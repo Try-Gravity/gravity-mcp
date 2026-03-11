@@ -9,6 +9,7 @@ from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 
 from resources.docs import get_doc_topic, get_format_detail, get_formats_index
+from tools.generate_code import generate_code as _generate_code
 from tools.search_formats import search_formats as _search_formats
 
 mcp = FastMCP(
@@ -38,6 +39,32 @@ def search_formats(
         detail: "names" for name list, "summary" for name/description/type, "full" includes code.
     """
     return _search_formats(query=query, category=category, detail=detail)
+
+
+@mcp.tool()
+def generate_code(
+    format: str,
+    framework: Literal["fastapi", "nextjs"] = "fastapi",
+    streaming: bool = True,
+    theme: Literal["light", "dark"] | None = None,
+    customizations: str | None = None,
+) -> dict:
+    """Generate paired server + client integration code for Gravity ads.
+
+    Args:
+        format: Ad format name (e.g. "floating", "card", "banner").
+        framework: "fastapi" or "nextjs".
+        streaming: True for SSE streaming, False for JSON response.
+        theme: "dark" to include dark mode styling recipe.
+        customizations: Natural language style notes (informational, for LLM context).
+    """
+    return _generate_code(
+        format=format,
+        framework=framework,
+        streaming=streaming,
+        theme=theme,
+        customizations=customizations,
+    )
 
 
 # ── Resources ────────────────────────────────────────────────────────────────
