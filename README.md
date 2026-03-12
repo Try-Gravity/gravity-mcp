@@ -150,22 +150,57 @@ Restart Cursor after editing the config. The Gravity tools will appear in the MC
 #### Option A: Remote (quickest — no local setup)
 
 ```bash
-claude mcp add gravity --transport http \
-  --url https://gravity-mcp-server-production-8e67.up.railway.app/mcp
+claude mcp add gravity \
+  --transport http \
+  https://gravity-mcp-server-production-8e67.up.railway.app/mcp \
+  --header "Authorization:Bearer your-api-key-here"
 ```
 
-#### Option B: CLI (local)
+Get your API key from [trygravity.ai/dashboard](https://trygravity.ai/dashboard). No cloning, no dependencies — just run the command and start a new conversation.
+
+By default this saves to your local project config. To scope it globally (all projects), add `-s user`:
+
+```bash
+claude mcp add gravity -s user \
+  --transport http \
+  https://gravity-mcp-server-production-8e67.up.railway.app/mcp \
+  --header "Authorization:Bearer your-api-key-here"
+```
+
+#### Option B: CLI (local stdio)
 
 ```bash
 claude mcp add gravity \
+  -e GRAVITY_API_KEY=your-api-key-here \
+  -e DATABASE_URL=postgresql://gravity:gravity@localhost:5432/gravity \
   -- /absolute/path/to/uv run \
   --directory /absolute/path/to/gravity-mcp/mcp-server \
   python server.py
 ```
 
-This writes the config to `~/.claude.json` automatically. To scope it to a single project, add the `-s project` flag.
+Replace the two `/absolute/path/to/...` values with the real paths from the prerequisite step. Get your API key from [trygravity.ai/dashboard](https://trygravity.ai/dashboard). Requires `docker compose up db -d` for the local Postgres.
 
-#### Option C: JSON config (local)
+Add `-s project` to scope the config to the current project only.
+
+#### Option C: Local Docker (HTTP)
+
+Start the server first:
+
+```bash
+docker compose up --build -d
+```
+
+Then add it to Claude Code:
+
+```bash
+claude mcp add gravity \
+  --transport http \
+  http://localhost:8000/mcp
+```
+
+#### Option D: JSON config (manual)
+
+You can also edit the config files directly instead of using the CLI.
 
 Add to `~/.claude.json` (global) or `<project>/.mcp.json` (project-scoped):
 
@@ -186,6 +221,14 @@ Add to `~/.claude.json` (global) or `<project>/.mcp.json` (project-scoped):
     }
   }
 }
+```
+
+#### Managing the server
+
+```bash
+claude mcp list              # see all configured MCP servers
+claude mcp get gravity       # check the Gravity server config
+claude mcp remove gravity    # remove the Gravity server
 ```
 
 ### Other MCP clients
