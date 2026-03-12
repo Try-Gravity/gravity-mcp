@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
+from data.auth import get_api_key, hash_key, validate_api_key
 from tools.build_theme import build_theme
 from tools.search_formats import search_formats
 from tools.generate_code import generate_code
@@ -110,6 +111,18 @@ class TestGenerateCode:
             assert row["placement_id"] == "main"
             assert row["placement"] == "below_response"
             assert row["platform"] == "web"
+            assert row["publisher_key_hash"] == ""
+
+    def test_placement_written_with_key_hash(self):
+        with patch("tools.generate_code.write_placement") as mock_wp:
+            r = generate_code(
+                format="banner", framework="nextjs", streaming=False,
+                placement_id="main", api_key="test-key-123",
+                publisher_key_hash="abc123",
+            )
+            mock_wp.assert_called_once()
+            row = mock_wp.call_args[0][0]
+            assert row["publisher_key_hash"] == "abc123"
 
     def test_placement_position_written(self):
         with patch("tools.generate_code.write_placement") as mock_wp:
@@ -209,6 +222,26 @@ class TestGenerateCode:
     def test_default_placement_is_below_response(self):
         r = generate_code(format="card", framework="fastapi", streaming=True, placement_id="main")
         assert "below_response" in r["server_code"]
+
+    def test_warning_when_no_api_key(self):
+        r = generate_code(format="card", framework="fastapi", streaming=True, placement_id="main")
+        assert "warning" in r
+        assert "GRAVITY_API_KEY" in r["warning"]
+
+    def test_no_warning_when_api_key_present(self):
+        r = generate_code(
+            format="card", framework="fastapi", streaming=True,
+            placement_id="main", api_key="some-key",
+        )
+        assert "warning" not in r
+
+    def test_gravity_api_key_in_fastapi_template(self):
+        r = generate_code(format="card", framework="fastapi", streaming=True, placement_id="main")
+        assert "GRAVITY_API_KEY" in r["server_code"]
+
+    def test_gravity_api_key_in_nextjs_template(self):
+        r = generate_code(format="card", framework="nextjs", streaming=True, placement_id="main")
+        assert "GRAVITY_API_KEY" in r["server_code"]
 
 
 # ── troubleshoot ─────────────────────────────────────────────────────────────
@@ -313,3 +346,68 @@ class TestBuildTheme:
         r = build_theme(bg_color="#FFF")
         assert "error" not in r
         assert r["is_dark"] is False
+
+
+# ── auth ─────────────────────────────────────────────────────────────────────
+
+
+class TestAuth:
+    def test_hash_key_deterministic(self):
+        assert hash_key("abc") == hash_key("abc")
+        assert len(hash_key("abc")) == 16
+
+    def test_hash_key_different_inputs(self):
+        assert hash_key("key-1") != hash_key("key-2")
+
+    def test_get_api_key_from_env(self):
+        with patch.dict("os.environ", {"GRAVITY_API_KEY": "env-key-123"}):
+            with patch("fastmcp.server.dependencies.get_http_headers", side_effect=Exception("no server")):
+                assert get_api_key() == "env-key-123"
+
+    def test_get_api_key_from_header(self):
+        mock_headers = {"authorization": "Bearer header-key-456"}
+        with patch("fastmcp.server.dependencies.get_http_headers", return_value=mock_headers):
+            assert get_api_key() == "header-key-456"
+
+    def test_get_api_key_header_takes_precedence(self):
+        mock_headers = {"authorization": "Bearer header-key"}
+        with patch("fastmcp.server.dependencies.get_http_headers", return_value=mock_headers):
+            with patch.dict("os.environ", {"GRAVITY_API_KEY": "env-key"}):
+                assert get_api_key() == "header-key"
+
+    def test_get_api_key_returns_none_when_missing(self):
+        with patch("fastmcp.server.dependencies.get_http_headers", return_value=None):
+            with patch.dict("os.environ", {}, clear=True):
+                assert get_api_key() is None
+
+    def test_validate_api_key_rejects_401(self):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        with patch("data.auth.httpx.post", return_value=mock_resp):
+            from data.auth import _cache
+            _cache.clear()
+            assert validate_api_key("bad-key") is False
+
+    def test_validate_api_key_accepts_200(self):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        with patch("data.auth.httpx.post", return_value=mock_resp):
+            from data.auth import _cache
+            _cache.clear()
+            assert validate_api_key("good-key") is True
+
+    def test_validate_api_key_caches_result(self):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        with patch("data.auth.httpx.post", return_value=mock_resp) as mock_post:
+            from data.auth import _cache
+            _cache.clear()
+            assert validate_api_key("cached-key") is True
+            assert validate_api_key("cached-key") is True
+            mock_post.assert_called_once()
+
+    def test_validate_api_key_graceful_on_network_error(self):
+        with patch("data.auth.httpx.post", side_effect=Exception("network error")):
+            from data.auth import _cache
+            _cache.clear()
+            assert validate_api_key("network-fail-key") is True

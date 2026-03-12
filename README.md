@@ -94,14 +94,15 @@ Add to your `mcp.json`:
         "python", "server.py"
       ],
       "env": {
-        "DATABASE_URL": "postgresql://gravity:gravity@localhost:5432/gravity"
+        "DATABASE_URL": "postgresql://gravity:gravity@localhost:5432/gravity",
+        "GRAVITY_API_KEY": "your-api-key-here"
       }
     }
   }
 }
 ```
 
-Replace the two `/absolute/path/to/...` values with the real paths from the prerequisite step. Requires `docker compose up db -d` for the local Postgres.
+Replace the two `/absolute/path/to/...` values with the real paths from the prerequisite step. Get your API key from [trygravity.ai/dashboard](https://trygravity.ai/dashboard). Requires `docker compose up db -d` for the local Postgres.
 
 #### Option C: SSE (local Docker)
 
@@ -162,7 +163,8 @@ Add to `~/.claude.json` (global) or `<project>/.mcp.json` (project-scoped):
         "python", "server.py"
       ],
       "env": {
-        "DATABASE_URL": "postgresql://gravity:gravity@localhost:5432/gravity"
+        "DATABASE_URL": "postgresql://gravity:gravity@localhost:5432/gravity",
+        "GRAVITY_API_KEY": "your-api-key-here"
       }
     }
   }
@@ -197,6 +199,7 @@ You should see the `search_formats` tool get invoked and return matching ad form
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `GRAVITY_API_KEY` | _(empty)_ | Publisher API key from [trygravity.ai/dashboard](https://trygravity.ai/dashboard). Required for ad serving. Can also be passed via `Authorization: Bearer <key>` header on SSE/HTTP connections. |
 | `LOG_LEVEL` | `INFO` | Python log level (DEBUG, INFO, WARNING, ERROR) |
 | `DATABASE_URL` | _(empty)_ | PostgreSQL connection string. Auto-injected by Railway in production. For local dev: `postgresql://gravity:gravity@localhost:5432/gravity` |
 | `PORT` | `8000` | HTTP server port. Auto-injected by Railway in production. |
@@ -262,6 +265,7 @@ mcp-server/
     format_catalog.py           # 25 ad format definitions
     docs.py                     # SDK documentation resources
   data/
+    auth.py                     # API key extraction, validation, and hashing
     db.py                       # PostgreSQL persistence layer
     style_type_map.py           # Format name → SDK variant mapping
     troubleshoot_kb.py          # Curated symptom/cause/fix entries
