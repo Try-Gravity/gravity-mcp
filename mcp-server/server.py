@@ -311,6 +311,9 @@ Follow these steps IN ORDER:
 
 Important:
 - ALWAYS extract and pass site theme tokens. Never generate code without them.
+- Generated code defaults to test mode (`production=False`). Remind the publisher
+  to set `production: true` (JS) or `production=True` (Python) when ready to serve
+  real ads. Without this, the API returns 204 No Content or only test ads.
 - The `getAds()` / `get_ads()` function **never throws** — returns empty array on failure.
 - Start the ad request early (before/alongside the LLM stream), await after streaming.
 - Always use `ad.clickUrl` for links, not `ad.url`.
