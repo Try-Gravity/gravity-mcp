@@ -60,120 +60,69 @@ def _load_template(framework: str, streaming: bool) -> tuple[str, str]:
 logger = logging.getLogger(__name__)
 
 
-def _strip_jsx_prop(code: str, prop_name: str) -> str:
-    """Remove a JSX prop block like style={{...}} or slotProps={{...}}."""
-    pattern = f"{prop_name}={{"
-    idx = code.find(pattern)
-    if idx == -1:
-        return code
-
-    line_start = code.rfind("\n", 0, idx)
-    if line_start == -1:
-        line_start = idx
-
-    brace_start = idx + len(pattern)
-    depth = 2
-    i = brace_start
-    while i < len(code):
-        if code[i] == "{":
-            depth += 1
-        elif code[i] == "}":
-            depth -= 1
-            if depth == 0:
-                end = i + 1
-                return code[:line_start] + code[end:]
-        i += 1
-
-    return code
-
-
-def _build_style_jsx(style: dict) -> str:
-    """Build a JSX style={{...}} prop string."""
+def _render_style_prop(style: dict) -> str:
+    """Render a JSX style={{...}} prop block from a dict."""
     lines = ",\n    ".join(f"{k}: {_jsx_val(v)}" for k, v in style.items())
-    return f"style={{{{\n    {lines},\n  }}}}"
+    return f"  style={{{{\n    {lines},\n  }}}}"
 
 
-def _build_slot_props_jsx(slot_props: dict) -> str:
-    """Build a JSX slotProps={{...}} prop string."""
+def _render_slot_props_prop(slot_props: dict) -> str:
+    """Render a JSX slotProps={{...}} prop block from a dict of slot -> css dict."""
     slot_lines = []
-    for slot_name, slot_val in slot_props.items():
-        inner = ", ".join(
-            f"{sk}: {_jsx_val(sv)}" for sk, sv in slot_val["style"].items()
-        )
+    for slot_name, css_dict in slot_props.items():
+        inner = ", ".join(f"{k}: {_jsx_val(v)}" for k, v in css_dict.items())
         slot_lines.append(f"    {slot_name}: {{ style: {{ {inner} }} }}")
-    block = ",\n".join(slot_lines)
-    return f"slotProps={{{{\n{block},\n  }}}}"
+    return f"  slotProps={{{{\n" + ",\n".join(slot_lines) + ",\n  }}"
 
 
-def _inject_theme_into_jsx(format_code: str, theme_result: dict) -> str:
-    """Merge theme style/slotProps directly into the GravityAd JSX.
+def render_format_jsx(format_entry: dict, theme_result: dict | None = None) -> str:
+    """Build a GravityAd/AdText JSX string from structured catalog data.
 
-    Removes existing style/slotProps blocks and injects themed replacements
-    before the closing />. Preserves format-specific layout props (like
-    maxWidth, display, paddingLeft) by merging them under theme colors.
+    Merges format base props with optional theme props. Format layout props
+    (maxWidth, display, padding, gap, etc.) are preserved as the base layer;
+    theme color/font props overlay on top.
     """
-    if "<AdText" in format_code:
-        return format_code
+    component = format_entry["component"]
+    variant = format_entry["variant"]
+    extra_props = format_entry.get("extra_props", {})
+    base_style = dict(format_entry.get("base_style", {}))
+    base_slots = {k: dict(v) for k, v in format_entry.get("base_slot_props", {}).items()}
 
-    existing_style: dict = {}
-    style_match = re.search(
-        r"style=\{\{([\s\S]*?)\}\}", format_code
-    )
-    if style_match:
-        raw = style_match.group(1)
-        for m in re.finditer(r"(\w+):\s*(.+?)(?:,\s*$|$)", raw, re.MULTILINE):
-            existing_style[m.group(1)] = m.group(2).strip().rstrip(",")
+    if component == "AdText":
+        return format_entry["code"]
 
-    existing_slots: dict = {}
-    slot_match = re.search(
-        r"slotProps=\{\{([\s\S]*?)\}\}\n", format_code
-    )
-    if slot_match:
-        raw = slot_match.group(1)
-        for m in re.finditer(r"(\w+):\s*\{\s*style:\s*\{([^}]*)\}", raw):
-            slot_name = m.group(1)
-            inner_raw = m.group(2)
-            props = {}
-            for p in re.finditer(r"(\w+):\s*(.+?)(?:,\s*|$)", inner_raw):
-                props[p.group(1)] = p.group(2).strip().rstrip(",")
-            existing_slots[slot_name] = props
+    merged_style = dict(base_style)
+    merged_slots = {k: dict(v) for k, v in base_slots.items()}
 
-    merged_style = {}
-    for k, v in existing_style.items():
-        merged_style[k] = v
-    for k, v in theme_result["style"].items():
-        merged_style[k] = _jsx_val(v) if not isinstance(v, str) or not v.startswith("'") else v
+    if theme_result:
+        for k, v in theme_result["style"].items():
+            merged_style[k] = v
+        for slot_name, slot_val in theme_result["slotProps"].items():
+            if slot_name not in merged_slots:
+                merged_slots[slot_name] = {}
+            for sk, sv in slot_val["style"].items():
+                merged_slots[slot_name][sk] = sv
 
-    theme_slots = theme_result["slotProps"]
-    merged_slot_props = {}
-    all_slot_names = set(list(existing_slots.keys()) + list(theme_slots.keys()))
-    for slot_name in all_slot_names:
-        merged_inner = {}
-        if slot_name in existing_slots:
-            merged_inner.update(existing_slots[slot_name])
-        if slot_name in theme_slots:
-            for sk, sv in theme_slots[slot_name]["style"].items():
-                merged_inner[sk] = _jsx_val(sv)
-        merged_slot_props[slot_name] = merged_inner
+    lines = [f"<{component}"]
+    lines.append("  ad={ad}")
+    if variant:
+        lines.append(f'  variant="{variant}"')
 
-    code = _strip_jsx_prop(format_code, "style")
-    code = _strip_jsx_prop(code, "slotProps")
+    for prop_name, prop_val in extra_props.items():
+        if isinstance(prop_val, bool):
+            lines.append(f"  {prop_name}={{{str(prop_val).lower()}}}")
+        elif isinstance(prop_val, str):
+            lines.append(f'  {prop_name}="{prop_val}"')
+        else:
+            lines.append(f"  {prop_name}={{{prop_val}}}")
 
-    style_lines = ",\n    ".join(f"{k}: {v}" for k, v in merged_style.items())
-    style_jsx = f"  style={{{{\n    {style_lines},\n  }}}}"
+    if merged_style:
+        lines.append(_render_style_prop(merged_style))
+    if merged_slots:
+        lines.append(_render_slot_props_prop(merged_slots))
 
-    slot_lines = []
-    for sn, inner in merged_slot_props.items():
-        inner_str = ", ".join(f"{sk}: {sv}" for sk, sv in inner.items())
-        slot_lines.append(f"    {sn}: {{ style: {{ {inner_str} }} }}")
-    slot_jsx = f"  slotProps={{{{\n" + ",\n".join(slot_lines) + ",\n  }}}}"
-
-    close_idx = code.rfind("/>")
-    if close_idx == -1:
-        return format_code
-
-    before = code[:close_idx].rstrip()
-    return f"{before}\n{style_jsx}\n{slot_jsx}\n/>"
+    lines.append("/>")
+    return "\n".join(lines)
 
 
 _PLACEMENT_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
@@ -251,7 +200,6 @@ def generate_code(
 
     style_type = STYLE_TYPE_MAP[format]
     format_entry = FORMAT_CATALOG[format]
-    format_code = format_entry["code"]
 
     try:
         server_template, client_template = _load_template(framework, streaming)
@@ -284,7 +232,7 @@ def generate_code(
         if "error" in theme_result:
             return theme_result
 
-        format_code = _inject_theme_into_jsx(format_code, theme_result)
+    format_code = render_format_jsx(format_entry, theme_result)
 
     server_code = server_template.format(
         placement_id=placement_id,
