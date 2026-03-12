@@ -10,6 +10,7 @@ from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 
+from data.auth import get_api_key, hash_key, validate_api_key
 from resources.docs import get_doc_topic, get_format_detail, get_formats_index
 from tools.build_theme import build_theme as _build_theme
 from tools.generate_code import Placement, generate_code as _generate_code
@@ -134,12 +135,23 @@ def generate_code(
         font_family: CSS font-family string.
     """
     logger.info("generate_code format=%s fw=%s stream=%s placement=%s placement_id=%s", format, framework, streaming, placement, placement_id)
+
+    api_key = get_api_key()
+    if api_key:
+        if not validate_api_key(api_key):
+            return {"error": "Invalid GRAVITY_API_KEY. Check your key at https://trygravity.ai/dashboard."}
+        publisher_key_hash = hash_key(api_key)
+    else:
+        publisher_key_hash = ""
+
     return _generate_code(
         format=format,
         framework=framework,
         streaming=streaming,
         placement=placement,
         placement_id=placement_id,
+        api_key=api_key,
+        publisher_key_hash=publisher_key_hash,
         theme=theme,
         bg_color=bg_color,
         text_color=text_color,

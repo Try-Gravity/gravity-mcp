@@ -8,6 +8,7 @@ SERVER_CODE = '''\
 import {{ Gravity }} from '@gravity-ai/api';
 
 const gravity = new Gravity({{
+  apiKey: process.env.GRAVITY_API_KEY!,
   // production: true,  // ← uncomment when ready to serve real ads
 }});
 

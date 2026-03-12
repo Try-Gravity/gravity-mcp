@@ -7,10 +7,12 @@ SERVER_CODE = '''\
 # main.py
 from fastapi import FastAPI, Request
 from gravity_sdk import Gravity
+import os
 
 app = FastAPI()
 
 gravity = Gravity(
+    api_key=os.environ["GRAVITY_API_KEY"],
     # production=True,  # ← uncomment when ready to serve real ads
 )
 
