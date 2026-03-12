@@ -1,7 +1,7 @@
 """Smoke tests — run against the live MCP server on http://localhost:8000.
 
 Usage:
-    uv run python server.py sse  # in one terminal (SSE on /sse)
+    uv run python server.py http  # in one terminal (streamable HTTP on /mcp)
     uv run python tests/smoke_test.py  # in another
 """
 
@@ -11,7 +11,7 @@ import asyncio
 
 from fastmcp import Client
 
-client = Client("http://localhost:8000/sse")
+client = Client("http://localhost:8000/mcp")
 
 
 async def smoke():

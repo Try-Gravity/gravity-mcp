@@ -20,7 +20,7 @@ import time
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
-SERVER_URL = "http://localhost:8000/sse"
+SERVER_URL = "http://localhost:8000/mcp"
 
 
 async def call_tool_safe(client: Client, tool: str, args: dict) -> tuple[str, str | None]:

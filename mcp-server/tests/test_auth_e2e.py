@@ -18,7 +18,7 @@ from fastmcp.client.transports import SSETransport
 
 async def test_no_key():
     """No API key → code generates but includes a warning."""
-    client = Client("http://localhost:8000/sse")
+    client = Client("http://localhost:8000/mcp")
     async with client:
         r = await client.call_tool(
             "generate_code",
@@ -38,7 +38,7 @@ async def test_valid_key_header():
     engine is unreachable or returns a non-401/403 response.
     """
     transport = SSETransport(
-        "http://localhost:8000/sse",
+        "http://localhost:8000/mcp",
         headers={"Authorization": "Bearer test-valid-key-12345"},
     )
     client = Client(transport)
@@ -56,7 +56,7 @@ async def test_valid_key_header():
 
 async def test_template_references():
     """Generated templates should reference GRAVITY_API_KEY for all framework combos."""
-    client = Client("http://localhost:8000/sse")
+    client = Client("http://localhost:8000/mcp")
     async with client:
         combos = [
             ("fastapi", True),
@@ -86,7 +86,7 @@ async def test_db_has_publisher_key_hash():
     import psycopg
 
     transport = SSETransport(
-        "http://localhost:8000/sse",
+        "http://localhost:8000/mcp",
         headers={"Authorization": "Bearer db-test-key-xyz"},
     )
     client = Client(transport)
