@@ -301,7 +301,7 @@ Follow these steps IN ORDER:
    through each item:
    - API key is set (GRAVITY_API_KEY env var)
    - Server-side fetch (not client-side)
-   - gravityContext() sent from client
+   - gravityContext() sent from client (sessionId must be stable per conversation, not hardcoded)
    - impUrl fires on ad visibility
    - clickUrl used for ad links (not url)
    - production: true when ready to go live

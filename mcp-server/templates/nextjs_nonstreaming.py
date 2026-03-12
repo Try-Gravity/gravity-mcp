@@ -46,6 +46,10 @@ import {{ gravityContext }} from '@gravity-ai/js';
 import {{ GravityAd }} from '@gravity-ai/react';
 import type {{ AdResponse }} from '@gravity-ai/react';
 
+// TODO: wire these to your app's real session + user identity
+const SESSION_ID: string = null!;  // e.g. chatSession.id or route param
+const USER_ID: string = null!;     // e.g. currentUser.id from your auth
+
 export default function Chat() {{
   const [ad, setAd] = useState<AdResponse | null>(null);
 
@@ -56,8 +60,8 @@ export default function Chat() {{
       body: JSON.stringify({{
         messages,
         gravity_context: gravityContext({{
-          sessionId: 'session-123',
-          user: {{ userId: 'user-456' }},
+          sessionId: SESSION_ID,
+          user: {{ userId: USER_ID }},
         }}),
       }}),
     }});
