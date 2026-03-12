@@ -21,18 +21,22 @@ CREATE TABLE IF NOT EXISTS placements (
     platform TEXT NOT NULL DEFAULT 'web',
     performance TEXT DEFAULT '',
     publisher_key_hash TEXT DEFAULT '',
+    publisher_id TEXT DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 """
 
 _MIGRATE_SQL = """
 ALTER TABLE placements ADD COLUMN IF NOT EXISTS publisher_key_hash TEXT DEFAULT '';
+ALTER TABLE placements ADD COLUMN IF NOT EXISTS publisher_id TEXT DEFAULT '';
 """
 
 _INSERT_SQL = """
-INSERT INTO placements (placement_id, placement, style, type, framework, platform, performance, publisher_key_hash, created_at)
-VALUES (%(placement_id)s, %(placement)s, %(style)s, %(type)s, %(framework)s, %(platform)s, %(performance)s, %(publisher_key_hash)s, %(created_at)s)
-ON CONFLICT (placement_id) DO NOTHING
+INSERT INTO placements (placement_id, placement, style, type, framework, platform, performance, publisher_key_hash, publisher_id, created_at)
+VALUES (%(placement_id)s, %(placement)s, %(style)s, %(type)s, %(framework)s, %(platform)s, %(performance)s, %(publisher_key_hash)s, %(publisher_id)s, %(created_at)s)
+ON CONFLICT (placement_id) DO UPDATE
+SET publisher_id = EXCLUDED.publisher_id,
+    placement = EXCLUDED.placement
 """
 
 _table_ready = False
