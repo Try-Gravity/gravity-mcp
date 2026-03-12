@@ -24,7 +24,6 @@ uv run python server.py sse        # SSE on port 8000 (for remote clients)
 
 ```bash
 # From the repo root
-cp .env.example .env
 docker compose up --build -d
 
 # Verify
@@ -34,7 +33,7 @@ docker compose logs -f               # watch logs
 docker compose down                  # stop
 ```
 
-The `placements` volume persists `placements.csv` across container restarts. The CSV auto-rotates at 10,000 rows.
+This starts the MCP server and a PostgreSQL database. Placement records are persisted to the `pgdata` volume across container restarts.
 
 ## Tools
 
@@ -68,24 +67,26 @@ Add to `~/.cursor/mcp.json`:
   "mcpServers": {
     "gravity": {
       "command": "/path/to/uv",
-      "args": ["run", "--directory", "/path/to/gravity-mcp/mcp-server", "python", "server.py"]
+      "args": ["run", "--directory", "/path/to/gravity-mcp/mcp-server", "python", "server.py"],
+      "env": {
+        "DATABASE_URL": "postgresql://gravity:gravity@localhost:5432/gravity"
+      }
     }
   }
 }
 ```
 
-Replace paths with your local values (`which uv` for the command). Restart Cursor to pick up changes.
+Replace paths with your local values (`which uv` for the command). The `DATABASE_URL` env var requires the Docker Postgres to be running (`docker compose up db -d`). Restart Cursor to pick up changes.
 
 ## Testing
 
 ```bash
 cd mcp-server
 
-# Unit tests (no server needed)
+# Unit tests (no server needed, DB writes are mocked)
 uv run pytest tests/test_tools.py -v
 
-# Smoke tests (server must be running on port 8000)
-uv run python server.py sse &
+# Smoke tests (requires docker compose up -d)
 uv run python tests/smoke_test.py
 ```
 
@@ -94,3 +95,14 @@ uv run python tests/smoke_test.py
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `LOG_LEVEL` | `INFO` | Python log level (DEBUG, INFO, WARNING, ERROR) |
+| `DATABASE_URL` | _(empty)_ | PostgreSQL connection string. Auto-injected by Railway. For local dev: `postgresql://gravity:gravity@localhost:5432/gravity` |
+| `PORT` | `8000` | HTTP server port. Auto-injected by Railway. |
+
+## Deploy to Railway
+
+1. Push this repo to GitHub
+2. Create a new Railway project from the repo
+3. Set **Root Directory** to `mcp-server`
+4. Add a **PostgreSQL** service — Railway auto-injects `DATABASE_URL`
+5. Deploy — the `placements` table is auto-created on first request
+6. Your MCP endpoint is `https://<app>.up.railway.app/sse`

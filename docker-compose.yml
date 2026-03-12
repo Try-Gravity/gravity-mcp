@@ -5,8 +5,10 @@ services:
       - "8000:8000"
     environment:
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
-    volumes:
-      - placements:/app/data
+      - DATABASE_URL=postgresql://gravity:gravity@db:5432/gravity
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: json-file
@@ -25,5 +27,21 @@ services:
       start_period: 10s
       retries: 3
 
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: gravity
+      POSTGRES_PASSWORD: gravity
+      POSTGRES_DB: gravity
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gravity"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
-  placements:
+  pgdata:

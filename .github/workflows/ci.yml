@@ -13,6 +13,24 @@ jobs:
       run:
         working-directory: mcp-server
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: gravity
+          POSTGRES_PASSWORD: gravity
+          POSTGRES_DB: gravity
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gravity"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://gravity:gravity@localhost:5432/gravity
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +54,7 @@ jobs:
       - name: Build Docker image
         run: docker compose build
 
-      - name: Start container
+      - name: Start containers
         run: docker compose up -d
 
       - name: Wait for healthy
