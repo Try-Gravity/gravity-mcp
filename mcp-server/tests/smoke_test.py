@@ -18,19 +18,21 @@ client = Client("http://localhost:8000/sse")
 
 async def smoke():
     async with client:
-        # 1. search_formats — names
+        # ── search_formats ────────────────────────────────────────────────
+
+        # 1. names
         r = await client.call_tool("search_formats", {"detail": "names"})
         assert "card" in str(r), "FAIL: search_formats names"
         print("PASS: search_formats names")
 
-        # 2. search_formats — summary with query
+        # 2. summary with query
         r = await client.call_tool(
             "search_formats", {"query": "notification", "detail": "summary"}
         )
         assert "notification" in str(r), "FAIL: search_formats query"
         print("PASS: search_formats query")
 
-        # 3. search_formats — full
+        # 3. full detail
         r = await client.call_tool(
             "search_formats", {"query": "floating", "detail": "full"}
         )
@@ -38,7 +40,7 @@ async def smoke():
         assert "code" in text or "GravityAd" in text or "boxShadow" in text, "FAIL: search_formats full has code"
         print("PASS: search_formats full")
 
-        # 4. search_formats — case-insensitive category
+        # 4. case-insensitive category
         r = await client.call_tool(
             "search_formats", {"category": "CARD", "detail": "names"}
         )
@@ -46,10 +48,17 @@ async def smoke():
         assert "card" in text and "floating" in text, "FAIL: search_formats CARD uppercase"
         print("PASS: search_formats case-insensitive category")
 
-        # 5. generate_code — fastapi streaming
+        # ── generate_code ─────────────────────────────────────────────────
+
+        # 5. basic fastapi streaming with placement_id
         r = await client.call_tool(
             "generate_code",
-            {"format": "floating", "framework": "fastapi", "streaming": True},
+            {
+                "format": "floating",
+                "placement_id": "main",
+                "framework": "fastapi",
+                "streaming": True,
+            },
         )
         text = str(r)
         assert "placement_id" in text, "FAIL: generate_code missing placement_id"
@@ -57,11 +66,12 @@ async def smoke():
         assert "GravityAd" in text, "FAIL: generate_code missing client code"
         print("PASS: generate_code fastapi streaming")
 
-        # 6. generate_code — dark theme (merged into JSX)
+        # 6. dark theme merged into JSX
         r = await client.call_tool(
             "generate_code",
             {
                 "format": "card",
+                "placement_id": "main",
                 "framework": "nextjs",
                 "streaming": False,
                 "theme": "dark",
@@ -72,29 +82,12 @@ async def smoke():
         assert "// Theme overrides" not in text, "FAIL: theme should be merged, not comments"
         print("PASS: generate_code dark theme merged")
 
-        # 7. build_theme — dark site
-        r = await client.call_tool(
-            "build_theme", {"bg_color": "#1a1a2e", "accent_color": "#F59E0B"}
-        )
-        text = str(r)
-        assert "#1a1a2e" in text, "FAIL: build_theme bg_color"
-        assert "#F59E0B" in text, "FAIL: build_theme accent"
-        assert "slotProps" in text or "slot_props" in text.lower(), "FAIL: build_theme slotProps"
-        print("PASS: build_theme dark site")
-
-        # 8. build_theme — invalid hex rejected
-        r = await client.call_tool(
-            "build_theme", {"bg_color": "not-a-color"}
-        )
-        text = str(r)
-        assert "error" in text.lower() or "invalid" in text.lower(), "FAIL: build_theme should reject invalid hex"
-        print("PASS: build_theme rejects invalid hex")
-
-        # 9. generate_code — with site theme tokens (merged)
+        # 7. site theme tokens merged
         r = await client.call_tool(
             "generate_code",
             {
                 "format": "floating",
+                "placement_id": "sidebar-1",
                 "framework": "fastapi",
                 "streaming": True,
                 "bg_color": "#0f172a",
@@ -105,37 +98,114 @@ async def smoke():
         text = str(r)
         assert "#0f172a" in text, "FAIL: site theme not in output"
         assert "theme_applied" in text, "FAIL: theme_applied missing"
-        print("PASS: generate_code with site theme tokens")
+        assert "sidebar-1" in text, "FAIL: custom placement_id not in output"
+        print("PASS: generate_code with site theme tokens + custom placement_id")
 
-        # 10. generate_code — custom placement
+        # 8. custom placement (above_response)
         r = await client.call_tool(
             "generate_code",
-            {"format": "card", "framework": "fastapi", "streaming": True, "placement": "above_response"},
+            {
+                "format": "card",
+                "placement_id": "top-ad",
+                "framework": "fastapi",
+                "streaming": True,
+                "placement": "above_response",
+            },
         )
         text = str(r)
         assert "above_response" in text, "FAIL: custom placement not in server code"
-        print("PASS: generate_code custom placement")
+        assert "top-ad" in text, "FAIL: custom placement_id not in server code"
+        print("PASS: generate_code custom placement + placement_id")
 
-        # 11. generate_code — unknown format rejected
+        # 9. page-relative placements accepted
+        for p in ("search_result", "center_page", "top_page", "bottom_page", "left_page", "right_page"):
+            r = await client.call_tool(
+                "generate_code",
+                {"format": "card", "placement_id": "main", "placement": p},
+            )
+            text = str(r)
+            assert p in text, f"FAIL: placement={p} not in output"
+            assert not any(
+                item.is_error for item in (r if isinstance(r, list) else [r])
+                if hasattr(item, "is_error")
+            ), f"FAIL: placement={p} returned an error"
+        print("PASS: generate_code all page-relative placements accepted")
+
+        # 10. invalid placement rejected by schema
+        try:
+            r = await client.call_tool(
+                "generate_code",
+                {"format": "card", "placement_id": "main", "placement": "somewhere_invalid"},
+            )
+            text = str(r)
+            assert "literal_error" in text.lower() or "error" in text.lower(), "FAIL: invalid placement should be rejected"
+        except Exception as e:
+            assert "literal_error" in str(e).lower() or "input should be" in str(e).lower(), f"FAIL: unexpected error: {e}"
+        print("PASS: generate_code rejects invalid placement (enum enforced)")
+
+        # 11. missing placement_id rejected by schema
+        try:
+            r = await client.call_tool(
+                "generate_code",
+                {"format": "card"},
+            )
+            text = str(r)
+            assert "missing" in text.lower() or "error" in text.lower(), "FAIL: missing placement_id should be rejected"
+        except Exception as e:
+            assert "missing" in str(e).lower() or "required" in str(e).lower(), f"FAIL: unexpected error: {e}"
+        print("PASS: generate_code rejects missing placement_id (required enforced)")
+
+        # 12. invalid placement_id format rejected
         r = await client.call_tool(
             "generate_code",
-            {"format": "nonexistent", "framework": "fastapi", "streaming": True},
+            {"format": "card", "placement_id": "has spaces!", "placement": "below_response"},
+        )
+        text = str(r)
+        assert "error" in text.lower() and "placement_id" in text.lower(), "FAIL: invalid placement_id should be rejected"
+        print("PASS: generate_code rejects invalid placement_id format")
+
+        # 13. unknown format rejected
+        r = await client.call_tool(
+            "generate_code",
+            {"format": "nonexistent", "placement_id": "main", "framework": "fastapi", "streaming": True},
         )
         assert "error" in str(r).lower() or "unknown" in str(r).lower(), "FAIL: bad format"
         print("PASS: generate_code rejects unknown format")
 
-        # 12. troubleshoot — known symptom
+        # ── build_theme ───────────────────────────────────────────────────
+
+        # 14. dark site theme
+        r = await client.call_tool(
+            "build_theme", {"bg_color": "#1a1a2e", "accent_color": "#F59E0B"}
+        )
+        text = str(r)
+        assert "#1a1a2e" in text, "FAIL: build_theme bg_color"
+        assert "#F59E0B" in text, "FAIL: build_theme accent"
+        assert "slotProps" in text or "slot_props" in text.lower(), "FAIL: build_theme slotProps"
+        print("PASS: build_theme dark site")
+
+        # 15. invalid hex rejected
+        r = await client.call_tool(
+            "build_theme", {"bg_color": "not-a-color"}
+        )
+        text = str(r)
+        assert "error" in text.lower() or "invalid" in text.lower(), "FAIL: build_theme should reject invalid hex"
+        print("PASS: build_theme rejects invalid hex")
+
+        # ── troubleshoot ──────────────────────────────────────────────────
+
+        # 16. known symptom
         r = await client.call_tool("troubleshoot", {"symptom": "no ads showing"})
         assert "API" in str(r) or "key" in str(r).lower(), "FAIL: troubleshoot"
         print("PASS: troubleshoot known symptom")
 
-        # 13. troubleshoot — fuzzy match
+        # 17. fuzzy match
         r = await client.call_tool("troubleshoot", {"symptom": "impressions not counting"})
         text = str(r)
         assert "impression" in text.lower(), "FAIL: troubleshoot fuzzy match"
         print("PASS: troubleshoot fuzzy match")
 
-        # 14. troubleshoot — unknown symptom
+        # 18. unknown symptom fallback
         r = await client.call_tool("troubleshoot", {"symptom": "random gibberish"})
         text_lower = str(r).lower()
         assert (
@@ -143,23 +213,33 @@ async def smoke():
         ), "FAIL: troubleshoot fallback"
         print("PASS: troubleshoot fallback")
 
-        # 15. Read resource — format index
+        # ── resources ─────────────────────────────────────────────────────
+
+        # 19. format index
         r = await client.read_resource("gravity://formats")
         assert "floating" in str(r), "FAIL: formats index"
         print("PASS: resource gravity://formats")
 
-        # 16. Read resource — single format
+        # 20. single format detail
         r = await client.read_resource("gravity://formats/banner")
         assert "banner" in str(r).lower(), "FAIL: format detail"
         print("PASS: resource gravity://formats/banner")
 
-        # 17. Read resource — docs topic
+        # 21. docs topic
         r = await client.read_resource("gravity://docs/ad-response")
         assert "adText" in str(r), "FAIL: docs ad-response"
         print("PASS: resource gravity://docs/ad-response")
 
-        # 18. Verify CSV was written (only when running against a local server;
-        #     Docker named volumes won't expose the file on the host)
+        # 22. placement policy includes all 11 placements
+        r = await client.read_resource("gravity://docs/placement-policy")
+        text = str(r)
+        for p in ("above_response", "below_response", "search_result", "center_page", "top_page", "bottom_page", "left_page", "right_page"):
+            assert p in text, f"FAIL: placement-policy missing {p}"
+        print("PASS: resource gravity://docs/placement-policy includes all placements")
+
+        # ── CSV verification ──────────────────────────────────────────────
+
+        # 23. CSV written
         csv_path = Path(__file__).parent.parent / "data" / "placements.csv"
         if csv_path.exists():
             with open(csv_path) as f:

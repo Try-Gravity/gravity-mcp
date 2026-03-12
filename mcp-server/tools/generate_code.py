@@ -5,7 +5,6 @@ from __future__ import annotations
 import csv
 import logging
 import re
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
@@ -36,13 +35,21 @@ _DARK_PRESET = {
     "border_color": "#3F3F46",
 }
 
-_VALID_PLACEMENTS = frozenset({
+Placement = Literal[
     "above_response",
     "below_response",
     "inline_response",
     "left_response",
     "right_response",
-})
+    "search_result",
+    "center_page",
+    "top_page",
+    "bottom_page",
+    "left_page",
+    "right_page",
+]
+
+_VALID_PLACEMENTS: frozenset[str] = frozenset(Placement.__args__)
 
 _TEMPLATE_MAP: dict[tuple[str, bool], str] = {
     ("fastapi", True): "templates.fastapi_streaming",
@@ -219,11 +226,15 @@ def _inject_theme_into_jsx(format_code: str, theme_result: dict) -> str:
     return f"{before}\n{style_jsx}\n{slot_jsx}\n/>"
 
 
+_PLACEMENT_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
 def generate_code(
     format: str,
+    placement_id: str,
     framework: Literal["fastapi", "nextjs"] = "fastapi",
     streaming: bool = True,
-    placement: str = "below_response",
+    placement: Placement = "below_response",
     theme: Literal["light", "dark"] | None = None,
     bg_color: str | None = None,
     text_color: str | None = None,
@@ -240,12 +251,20 @@ def generate_code(
     so the ad blends in natively. If no tokens are provided and theme is
     not set, the ad uses sensible defaults for a light background.
 
+    **Important:** Always confirm `placement` and `placement_id` with the
+    publisher before calling this tool. The `placement_id` is a stable
+    tracking identifier used for analytics and per-slot revenue attribution
+    — it must be consistent across code regenerations.
+
     Args:
         format: One of the 25 ad format names (e.g. "floating", "card", "banner").
         framework: Server framework — "fastapi" or "nextjs".
         streaming: True for SSE streaming, False for JSON response.
         placement: Ad placement position. One of: above_response, below_response,
             inline_response, left_response, right_response.
+        placement_id: Stable tracking ID for this ad slot (e.g. "main",
+            "sidebar-1", "bottom-ad"). Must be unique per slot, alphanumeric
+            with hyphens/underscores, max 64 chars. Confirmed by the publisher.
         theme: Preset — "dark" auto-fills dark palette tokens. Individual
             color params override preset values when both are provided.
         bg_color: Site background color (e.g. "#FFFFFF", "#1a1a2e").
@@ -272,6 +291,12 @@ def generate_code(
             f"Valid placements: {', '.join(sorted(_VALID_PLACEMENTS))}"
         }
 
+    if not _PLACEMENT_ID_RE.match(placement_id):
+        return {
+            "error": f"Invalid placement_id: '{placement_id}'. "
+            "Must be 1-64 alphanumeric characters, hyphens, or underscores."
+        }
+
     style_type = STYLE_TYPE_MAP[format]
     format_entry = FORMAT_CATALOG[format]
     format_code = format_entry["code"]
@@ -280,8 +305,6 @@ def generate_code(
         server_template, client_template = _load_template(framework, streaming)
     except ValueError as e:
         return {"error": str(e)}
-
-    placement_id = str(uuid.uuid4())
 
     has_explicit_tokens = any(
         v is not None

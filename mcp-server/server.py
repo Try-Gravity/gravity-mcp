@@ -12,7 +12,7 @@ from starlette.responses import JSONResponse, PlainTextResponse
 
 from resources.docs import get_doc_topic, get_format_detail, get_formats_index
 from tools.build_theme import build_theme as _build_theme
-from tools.generate_code import generate_code as _generate_code
+from tools.generate_code import Placement, generate_code as _generate_code
 from tools.search_formats import search_formats as _search_formats
 from tools.troubleshoot import troubleshoot as _troubleshoot
 
@@ -96,9 +96,10 @@ def build_theme(
 @mcp.tool()
 def generate_code(
     format: str,
+    placement_id: str,
     framework: Literal["fastapi", "nextjs"] = "fastapi",
     streaming: bool = True,
-    placement: str = "below_response",
+    placement: Placement = "below_response",
     theme: Literal["light", "dark"] | None = None,
     bg_color: str | None = None,
     text_color: str | None = None,
@@ -113,11 +114,16 @@ def generate_code(
     Always pass site design tokens so the ad blends in natively. At minimum
     pass bg_color — all other colors are derived automatically.
 
+    **Important:** Always confirm `placement` and `placement_id` with the
+    publisher before calling this tool. The placement_id is a stable tracking
+    identifier used for analytics — it must stay consistent across regenerations.
+
     Args:
         format: Ad format name (e.g. "floating", "card", "banner").
         framework: "fastapi" or "nextjs".
         streaming: True for SSE streaming, False for JSON response.
-        placement: Ad position relative to AI response. One of: above_response, below_response, inline_response, left_response, right_response.
+        placement: Ad position. One of: above_response, below_response, inline_response, left_response, right_response, search_result, center_page, top_page, bottom_page, left_page, right_page.
+        placement_id: Stable tracking ID for this ad slot chosen by the publisher (e.g. "main", "sidebar-1"). Must be unique per slot. Alphanumeric, hyphens, underscores, max 64 chars.
         theme: Preset — "dark" auto-fills dark palette. Color params override preset.
         bg_color: Site background color. Drives automatic dark/light detection.
         text_color: Primary text color.
@@ -127,12 +133,13 @@ def generate_code(
         border_radius: Border radius in pixels.
         font_family: CSS font-family string.
     """
-    logger.info("generate_code format=%s fw=%s stream=%s placement=%s", format, framework, streaming, placement)
+    logger.info("generate_code format=%s fw=%s stream=%s placement=%s placement_id=%s", format, framework, streaming, placement, placement_id)
     return _generate_code(
         format=format,
         framework=framework,
         streaming=streaming,
         placement=placement,
+        placement_id=placement_id,
         theme=theme,
         bg_color=bg_color,
         text_color=text_color,
@@ -211,10 +218,27 @@ Follow these steps IN ORDER:
 2. **Discover formats** — Call `search_formats` with `detail="summary"` to show
    available formats. If the publisher already chose "{format}", skip ahead.
 
-3. **Generate code** — Call `generate_code` with:
+3. **Confirm placement and placement_id** (MANDATORY — ask BEFORE generating code):
+   Ask the publisher:
+   - **Where** they want the ad (`placement`).
+     Valid values:
+       Response-relative: `above_response`, `below_response`, `inline_response`,
+         `left_response`, `right_response`
+       Search: `search_result`
+       Page-relative: `center_page`, `top_page`, `bottom_page`, `left_page`, `right_page`
+     Default: `below_response`.
+   - **What tracking ID** they want for this ad slot (`placement_id`).
+     This is a stable string (e.g. "main", "sidebar-1", "bottom-ad") used
+     for analytics and per-slot revenue attribution. It must stay the same
+     across code regenerations. Default: `main`.
+
+   Do NOT call `generate_code` until the publisher has confirmed both values.
+
+4. **Generate code** — Call `generate_code` with:
    - `format="{format}"`
    - `framework="{framework}"`
    - `streaming=True` (or False for JSON responses)
+   - `placement` and `placement_id` as confirmed by the publisher
    - **Always pass the extracted design tokens**: `bg_color`, `text_color`,
      `accent_color`, `border_radius`, `font_family` etc.
    - Use `theme="dark"` as a shortcut only if you cannot find specific colors
@@ -222,7 +246,7 @@ Follow these steps IN ORDER:
 
    This returns paired server + client code with theme-matched styling built in.
 
-4. **Verify the visual fit** — After generating code, review the `theme_applied`
+5. **Verify the visual fit** — After generating code, review the `theme_applied`
    field in the result. Confirm:
    - The ad background matches or complements the site's background
    - Text colors have adequate contrast (WCAG AA)
@@ -232,7 +256,7 @@ Follow these steps IN ORDER:
 
    If something looks off, call `generate_code` again with adjusted tokens.
 
-5. **Verify integration** — Read the `gravity://docs/checklist` resource and walk
+6. **Verify integration** — Read the `gravity://docs/checklist` resource and walk
    through each item:
    - API key is set (GRAVITY_API_KEY env var)
    - Server-side fetch (not client-side)
@@ -241,7 +265,7 @@ Follow these steps IN ORDER:
    - clickUrl used for ad links (not url)
    - production: true when ready to go live
 
-6. **Troubleshoot** — If the publisher reports issues, call `troubleshoot` with
+7. **Troubleshoot** — If the publisher reports issues, call `troubleshoot` with
    their symptom description.
 
 Important:
