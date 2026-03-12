@@ -9,6 +9,7 @@ from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 
 from resources.docs import get_doc_topic, get_format_detail, get_formats_index
+from tools.build_theme import build_theme as _build_theme
 from tools.generate_code import generate_code as _generate_code
 from tools.search_formats import search_formats as _search_formats
 from tools.troubleshoot import troubleshoot as _troubleshoot
@@ -43,28 +44,88 @@ def search_formats(
 
 
 @mcp.tool()
+def build_theme(
+    bg_color: str | None = None,
+    text_color: str | None = None,
+    accent_color: str | None = None,
+    secondary_color: str | None = None,
+    border_color: str | None = None,
+    border_radius: int | None = None,
+    font_family: str | None = None,
+) -> dict:
+    """Build GravityAd style + slotProps that match the publisher's site theme.
+
+    Pass design tokens extracted from the publisher's CSS, Tailwind config,
+    or component styles. Omitted values are derived automatically — just
+    passing bg_color is enough for a coherent theme.
+
+    Args:
+        bg_color: Site background color (e.g. "#FFFFFF", "#1a1a2e"). Drives dark/light detection.
+        text_color: Primary text color. Auto-derived from bg_color if omitted.
+        accent_color: Brand/accent color for CTA buttons.
+        secondary_color: Muted text color for descriptions and labels.
+        border_color: Border color for the ad container.
+        border_radius: Border radius in pixels.
+        font_family: CSS font-family string (e.g. "Inter, sans-serif").
+    """
+    return _build_theme(
+        bg_color=bg_color,
+        text_color=text_color,
+        accent_color=accent_color,
+        secondary_color=secondary_color,
+        border_color=border_color,
+        border_radius=border_radius,
+        font_family=font_family,
+    )
+
+
+@mcp.tool()
 def generate_code(
     format: str,
     framework: Literal["fastapi", "nextjs"] = "fastapi",
     streaming: bool = True,
+    placement: str = "below_response",
     theme: Literal["light", "dark"] | None = None,
-    customizations: str | None = None,
+    bg_color: str | None = None,
+    text_color: str | None = None,
+    accent_color: str | None = None,
+    secondary_color: str | None = None,
+    border_color: str | None = None,
+    border_radius: int | None = None,
+    font_family: str | None = None,
 ) -> dict:
     """Generate paired server + client integration code for Gravity ads.
+
+    Always pass site design tokens so the ad blends in natively. At minimum
+    pass bg_color — all other colors are derived automatically.
 
     Args:
         format: Ad format name (e.g. "floating", "card", "banner").
         framework: "fastapi" or "nextjs".
         streaming: True for SSE streaming, False for JSON response.
-        theme: "dark" to include dark mode styling recipe.
-        customizations: Natural language style notes (informational, for LLM context).
+        placement: Ad position relative to AI response. One of: above_response, below_response, inline_response, left_response, right_response.
+        theme: Preset — "dark" auto-fills dark palette. Color params override preset.
+        bg_color: Site background color. Drives automatic dark/light detection.
+        text_color: Primary text color.
+        accent_color: Brand/accent color for CTA buttons.
+        secondary_color: Muted text color.
+        border_color: Border color.
+        border_radius: Border radius in pixels.
+        font_family: CSS font-family string.
     """
     return _generate_code(
         format=format,
         framework=framework,
         streaming=streaming,
+        placement=placement,
         theme=theme,
-        customizations=customizations,
+        bg_color=bg_color,
+        text_color=text_color,
+        accent_color=accent_color,
+        secondary_color=secondary_color,
+        border_color=border_color,
+        border_radius=border_radius,
+        font_family=font_family,
     )
 
 
@@ -114,26 +175,49 @@ def integrate_gravity_ads(framework: str = "fastapi", format: str = "card") -> s
     """Step-by-step guide to integrate Gravity ads into a publisher's app."""
     return f"""\
 You are helping a publisher integrate Gravity ads into their {framework} application.
+The ad MUST blend seamlessly into the publisher's existing UI — even if they don't
+explicitly ask for style matching. This is non-negotiable.
 
-Follow these steps:
+Follow these steps IN ORDER:
 
-1. **Discover formats** — Call the `search_formats` tool with `detail="summary"` to show
-   the publisher what ad formats are available. If they already chose "{format}", skip to step 2.
+1. **Extract site theme** (MANDATORY — do this BEFORE generating code):
+   Look at the publisher's codebase for design tokens. Check these sources:
+   - Tailwind config (`tailwind.config.ts/js`) — look for `colors`, `borderRadius`, `fontFamily`
+   - CSS variables in global stylesheets (e.g. `--background`, `--foreground`, `--primary`)
+   - Component styles near the ad placement point (background, text color, border radius)
+   - `globals.css`, `layout.tsx`, or theme provider files
 
-2. **Generate code** — Call `generate_code` with:
+   Extract at minimum: `bg_color` (background color where the ad will sit).
+   Ideal: `bg_color`, `text_color`, `accent_color`, `border_radius`, `font_family`.
+
+   You can call `build_theme` with these tokens to preview the resolved style and slotProps.
+
+2. **Discover formats** — Call `search_formats` with `detail="summary"` to show
+   available formats. If the publisher already chose "{format}", skip ahead.
+
+3. **Generate code** — Call `generate_code` with:
    - `format="{format}"`
    - `framework="{framework}"`
-   - `streaming=True` (or False if the publisher uses JSON responses)
-   - `theme="dark"` if the publisher has a dark UI
+   - `streaming=True` (or False for JSON responses)
+   - **Always pass the extracted design tokens**: `bg_color`, `text_color`,
+     `accent_color`, `border_radius`, `font_family` etc.
+   - Use `theme="dark"` as a shortcut only if you cannot find specific colors
+     but the site is clearly dark-themed.
 
-   This returns paired server + client code with a unique `placement_id`.
+   This returns paired server + client code with theme-matched styling built in.
 
-3. **Apply customizations** — If the publisher wants custom styling, use the
-   `gravity://docs/styling` resource for the full slotProps API reference.
-   Modify the `<GravityAd>` component's `style` and `slotProps` props accordingly.
+4. **Verify the visual fit** — After generating code, review the `theme_applied`
+   field in the result. Confirm:
+   - The ad background matches or complements the site's background
+   - Text colors have adequate contrast (WCAG AA)
+   - The CTA button uses the site's accent/brand color
+   - Border radius matches the site's component rounding
+   - If the site uses a custom font, the ad inherits it
 
-4. **Verify integration** — Read the `gravity://docs/checklist` resource and walk through
-   each item with the publisher:
+   If something looks off, call `generate_code` again with adjusted tokens.
+
+5. **Verify integration** — Read the `gravity://docs/checklist` resource and walk
+   through each item:
    - API key is set (GRAVITY_API_KEY env var)
    - Server-side fetch (not client-side)
    - gravityContext() sent from client
@@ -141,12 +225,13 @@ Follow these steps:
    - clickUrl used for ad links (not url)
    - production: true when ready to go live
 
-5. **Troubleshoot** — If the publisher reports issues, call the `troubleshoot` tool with
-   their symptom description to get a diagnosis.
+6. **Troubleshoot** — If the publisher reports issues, call `troubleshoot` with
+   their symptom description.
 
 Important:
-- The `getAds()` / `get_ads()` function **never throws** — it returns an empty array on failure.
-- Start the ad request early (before/alongside the LLM stream), await it after streaming completes.
+- ALWAYS extract and pass site theme tokens. Never generate code without them.
+- The `getAds()` / `get_ads()` function **never throws** — returns empty array on failure.
+- Start the ad request early (before/alongside the LLM stream), await after streaming.
 - Always use `ad.clickUrl` for links, not `ad.url`.
 - Fire `ad.impUrl` within 5 minutes of receiving the ad.
 """
@@ -161,4 +246,12 @@ async def health(request: Request) -> PlainTextResponse:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)
+    import sys
+
+    transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
+    if transport == "http":
+        mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)
+    elif transport == "sse":
+        mcp.run(transport="sse", host="0.0.0.0", port=8000)
+    else:
+        mcp.run(transport="stdio")

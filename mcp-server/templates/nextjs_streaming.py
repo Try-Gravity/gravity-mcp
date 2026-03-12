@@ -1,6 +1,6 @@
 """Next.js App Router + SSE streaming template.
 
-Uses `{placement_id}` and `{format_code}` as substitution slots.
+Uses `{placement_id}`, `{placement}`, and `{format_code}` as substitution slots.
 """
 
 SERVER_CODE = '''\
@@ -20,7 +20,7 @@ export async function POST(request: Request) {{
   const adPromise = gravity.getAds(
     {{ body, headers: Object.fromEntries(request.headers) }},
     messages,
-    [{{ placement: 'below_response', placement_id: '{placement_id}' }}],
+    [{{ placement: '{placement}', placement_id: '{placement_id}' }}],
   );
 
   const encoder = new TextEncoder();

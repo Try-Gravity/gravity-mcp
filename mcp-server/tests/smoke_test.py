@@ -1,7 +1,7 @@
-"""Smoke tests — run against the live MCP server on http://localhost:8000/mcp.
+"""Smoke tests — run against the live MCP server on http://localhost:8000.
 
 Usage:
-    uv run python server.py  # in one terminal
+    uv run python server.py sse  # in one terminal (SSE on /sse)
     uv run python tests/smoke_test.py  # in another
 """
 
@@ -13,7 +13,7 @@ from pathlib import Path
 
 from fastmcp import Client
 
-client = Client("http://localhost:8000/mcp")
+client = Client("http://localhost:8000/sse")
 
 
 async def smoke():
@@ -38,7 +38,15 @@ async def smoke():
         assert "code" in text or "GravityAd" in text or "boxShadow" in text, "FAIL: search_formats full has code"
         print("PASS: search_formats full")
 
-        # 4. generate_code — fastapi streaming
+        # 4. search_formats — case-insensitive category
+        r = await client.call_tool(
+            "search_formats", {"category": "CARD", "detail": "names"}
+        )
+        text = str(r)
+        assert "card" in text and "floating" in text, "FAIL: search_formats CARD uppercase"
+        print("PASS: search_formats case-insensitive category")
+
+        # 5. generate_code — fastapi streaming
         r = await client.call_tool(
             "generate_code",
             {"format": "floating", "framework": "fastapi", "streaming": True},
@@ -49,7 +57,7 @@ async def smoke():
         assert "GravityAd" in text, "FAIL: generate_code missing client code"
         print("PASS: generate_code fastapi streaming")
 
-        # 5. generate_code — dark theme
+        # 6. generate_code — dark theme (merged into JSX)
         r = await client.call_tool(
             "generate_code",
             {
@@ -59,10 +67,56 @@ async def smoke():
                 "theme": "dark",
             },
         )
-        assert "#18181B" in str(r) or "dark" in str(r).lower(), "FAIL: dark theme"
-        print("PASS: generate_code dark theme")
+        text = str(r)
+        assert "#18181B" in text, "FAIL: dark theme color missing"
+        assert "// Theme overrides" not in text, "FAIL: theme should be merged, not comments"
+        print("PASS: generate_code dark theme merged")
 
-        # 6. generate_code — unknown format rejected
+        # 7. build_theme — dark site
+        r = await client.call_tool(
+            "build_theme", {"bg_color": "#1a1a2e", "accent_color": "#F59E0B"}
+        )
+        text = str(r)
+        assert "#1a1a2e" in text, "FAIL: build_theme bg_color"
+        assert "#F59E0B" in text, "FAIL: build_theme accent"
+        assert "slotProps" in text or "slot_props" in text.lower(), "FAIL: build_theme slotProps"
+        print("PASS: build_theme dark site")
+
+        # 8. build_theme — invalid hex rejected
+        r = await client.call_tool(
+            "build_theme", {"bg_color": "not-a-color"}
+        )
+        text = str(r)
+        assert "error" in text.lower() or "invalid" in text.lower(), "FAIL: build_theme should reject invalid hex"
+        print("PASS: build_theme rejects invalid hex")
+
+        # 9. generate_code — with site theme tokens (merged)
+        r = await client.call_tool(
+            "generate_code",
+            {
+                "format": "floating",
+                "framework": "fastapi",
+                "streaming": True,
+                "bg_color": "#0f172a",
+                "accent_color": "#38bdf8",
+                "border_radius": 12,
+            },
+        )
+        text = str(r)
+        assert "#0f172a" in text, "FAIL: site theme not in output"
+        assert "theme_applied" in text, "FAIL: theme_applied missing"
+        print("PASS: generate_code with site theme tokens")
+
+        # 10. generate_code — custom placement
+        r = await client.call_tool(
+            "generate_code",
+            {"format": "card", "framework": "fastapi", "streaming": True, "placement": "above_response"},
+        )
+        text = str(r)
+        assert "above_response" in text, "FAIL: custom placement not in server code"
+        print("PASS: generate_code custom placement")
+
+        # 11. generate_code — unknown format rejected
         r = await client.call_tool(
             "generate_code",
             {"format": "nonexistent", "framework": "fastapi", "streaming": True},
@@ -70,12 +124,18 @@ async def smoke():
         assert "error" in str(r).lower() or "unknown" in str(r).lower(), "FAIL: bad format"
         print("PASS: generate_code rejects unknown format")
 
-        # 7. troubleshoot — known symptom
+        # 12. troubleshoot — known symptom
         r = await client.call_tool("troubleshoot", {"symptom": "no ads showing"})
         assert "API" in str(r) or "key" in str(r).lower(), "FAIL: troubleshoot"
         print("PASS: troubleshoot known symptom")
 
-        # 8. troubleshoot — unknown symptom
+        # 13. troubleshoot — fuzzy match
+        r = await client.call_tool("troubleshoot", {"symptom": "impressions not counting"})
+        text = str(r)
+        assert "impression" in text.lower(), "FAIL: troubleshoot fuzzy match"
+        print("PASS: troubleshoot fuzzy match")
+
+        # 14. troubleshoot — unknown symptom
         r = await client.call_tool("troubleshoot", {"symptom": "random gibberish"})
         text_lower = str(r).lower()
         assert (
@@ -83,27 +143,27 @@ async def smoke():
         ), "FAIL: troubleshoot fallback"
         print("PASS: troubleshoot fallback")
 
-        # 9. Read resource — format index
+        # 15. Read resource — format index
         r = await client.read_resource("gravity://formats")
         assert "floating" in str(r), "FAIL: formats index"
         print("PASS: resource gravity://formats")
 
-        # 10. Read resource — single format
+        # 16. Read resource — single format
         r = await client.read_resource("gravity://formats/banner")
         assert "banner" in str(r).lower(), "FAIL: format detail"
         print("PASS: resource gravity://formats/banner")
 
-        # 11. Read resource — docs topic
+        # 17. Read resource — docs topic
         r = await client.read_resource("gravity://docs/ad-response")
         assert "adText" in str(r), "FAIL: docs ad-response"
         print("PASS: resource gravity://docs/ad-response")
 
-        # 12. Verify CSV was written
+        # 18. Verify CSV was written
         csv_path = Path(__file__).parent.parent / "data" / "placements.csv"
         assert csv_path.exists(), "FAIL: placements.csv not created"
         with open(csv_path) as f:
             rows = list(csv.DictReader(f))
-        assert len(rows) >= 2, f"FAIL: expected at least 2 rows, got {len(rows)}"
+        assert len(rows) >= 4, f"FAIL: expected at least 4 rows, got {len(rows)}"
         print(f"PASS: placements.csv has {len(rows)} rows")
 
         print("\n--- ALL SMOKE TESTS PASSED ---")
