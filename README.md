@@ -13,6 +13,20 @@ An MCP (Model Context Protocol) server that helps publishers integrate [Gravity]
 
 The server also exposes `gravity://` resources for SDK documentation and an `integrate_gravity_ads` prompt template for guided integration.
 
+## Resources
+
+| URI | Content |
+|-----|---------|
+| `gravity://formats` | Index of all 25 ad format names and descriptions |
+| `gravity://formats/{name}` | Full detail for one format (code, type, omits) |
+| `gravity://docs/{topic}` | SDK documentation by topic |
+
+Doc topics: `ad-response`, `styling`, `react-component`, `server-sdk`, `js-sdk`, `placement-policy`, `checklist`
+
+## Prompt
+
+`integrate_gravity_ads(framework, format)` — step-by-step guide for integrating ads into a publisher's app. Automatically instructs the LLM to extract site theme tokens before generating code.
+
 ## Quick start
 
 ### Native (stdio — for Cursor)
@@ -197,6 +211,73 @@ Once connected, ask your AI assistant:
 > "Search for Gravity ad formats in the card category"
 
 You should see the `search_formats` tool get invoked and return matching ad formats.
+
+## Usage guide
+
+Once the MCP server is connected, you can ask your AI assistant natural-language questions. Below are example queries grouped by task, with the expected behavior for each.
+
+### Discovering ad formats
+
+| Example query | Expected behavior |
+|---|---|
+| "What ad formats are available?" | Calls `search_formats(detail="summary")` → returns all 25 formats with name, description, and type |
+| "Show me banner-style formats" | Calls `search_formats(category="banner")` → returns formats in the banner category |
+| "Do you have a floating ad?" | Calls `search_formats(query="floating")` → returns matching format(s) |
+| "Show me the full code for the card format" | Calls `search_formats(query="card", detail="full")` → returns format detail including JSX code |
+
+### Previewing theme styles
+
+| Example query | Expected behavior |
+|---|---|
+| "Preview a dark theme for the ad" | Calls `build_theme(bg_color="#18181B")` → returns resolved style + slotProps for a dark background |
+| "My site uses bg #1a1a2e, accent #E11D48, and 16px border radius" | Calls `build_theme(bg_color="#1a1a2e", accent_color="#E11D48", border_radius=16)` → returns theme with those tokens applied |
+| "What would the ad look like with Inter font and rounded corners?" | Calls `build_theme(font_family="Inter, sans-serif", border_radius=12)` → returns style preview |
+
+### Generating integration code
+
+| Example query | Expected behavior |
+|---|---|
+| "Generate a card ad for my FastAPI app with streaming" | Extracts site theme tokens first (reads your codebase), confirms placement, then calls `generate_code(format="card", framework="fastapi", streaming=True, ...)` → returns paired server + client code |
+| "Add a banner ad to my Next.js app, below the response" | Same flow: extract theme → confirm placement → calls `generate_code(format="banner", framework="nextjs", placement="below_response", ...)` |
+| "Regenerate the code with a dark theme" | Calls `generate_code(..., theme="dark")` → returns code with dark palette baked in |
+| "Use my brand color #E11D48 for the CTA button" | Calls `generate_code(..., accent_color="#E11D48")` → returns code with custom accent |
+
+**Expected multi-step flow:** The LLM should (1) scan your codebase for design tokens, (2) ask you to confirm ad placement and placement_id, (3) generate code with theme tokens passed in. If it skips theme extraction, ask it to check your Tailwind config or CSS variables first.
+
+### Troubleshooting
+
+| Example query | Expected behavior |
+|---|---|
+| "No ads are showing up" | Calls `troubleshoot(symptom="no ads showing")` → returns diagnosis: likely missing `GRAVITY_API_KEY`, with fix steps |
+| "I'm getting a 401 error" | Calls `troubleshoot(symptom="401")` → returns: invalid/revoked API key, with regeneration instructions |
+| "CORS error when fetching ads" | Calls `troubleshoot(symptom="CORS error")` → returns: ad fetch must be server-side, not client-side |
+| "Impressions aren't tracking" | Calls `troubleshoot(symptom="impressions not counting")` → returns: `impUrl` not being fired, with fix code |
+| "Only getting test ads, no revenue" | Calls `troubleshoot(symptom="test ads only")` → returns: `production: true` not set |
+| "Ad request is timing out" | Calls `troubleshoot(symptom="timeout")` → returns: increase `timeoutMs`, start request early |
+| "Clicks aren't being tracked" | Calls `troubleshoot(symptom="clicks don't track")` → returns: use `ad.clickUrl` not `ad.url` |
+
+### Reading documentation
+
+| Example query | Expected behavior |
+|---|---|
+| "What fields are in the ad response?" | Reads `gravity://docs/ad-response` → shows the `Ad` interface with all fields explained |
+| "How do I style the ad component?" | Reads `gravity://docs/styling` → shows `style`, `slotProps`, and `className` methods with recipes |
+| "Show me the integration checklist" | Reads `gravity://docs/checklist` → shows server-side and client-side verification items |
+| "What placements are allowed?" | Reads `gravity://docs/placement-policy` → shows all valid placement values and rules |
+| "How do I use the Python server SDK?" | Reads `gravity://docs/server-sdk` → shows `Gravity` class API and usage examples |
+| "How do I send gravity context from the client?" | Reads `gravity://docs/js-sdk` → shows `gravityContext()` usage |
+
+### End-to-end integration (using the prompt)
+
+Asking "Help me integrate Gravity ads into my app" triggers the `integrate_gravity_ads` prompt, which walks through the full flow:
+
+1. **Extract site theme** — LLM reads your Tailwind config, CSS variables, or component styles
+2. **Discover formats** — shows available ad formats for you to pick
+3. **Confirm placement** — asks where you want the ad and what tracking ID to use
+4. **Generate code** — produces server + client code with your theme baked in
+5. **Verify visual fit** — checks contrast, colors, and border radius match your site
+6. **Verify integration** — walks through the checklist (API key, server-side fetch, impUrl, clickUrl, etc.)
+7. **Troubleshoot** — diagnoses any issues you report
 
 ## Environment variables
 
