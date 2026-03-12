@@ -25,6 +25,14 @@ GLOBAL_LIMIT = 60
 _CLEANUP_INTERVAL = 300
 
 
+class RateLimitExceeded(Exception):
+    """Raised when a client exceeds their rate limit."""
+
+    def __init__(self, message: str, retry_after: int) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 class RateLimiter:
     """Thread-safe sliding-window rate limiter.
 
@@ -100,11 +108,12 @@ def _tool_max(tool_name: str) -> int:
     return GENERATE_CODE_LIMIT if tool_name == "generate_code" else TOOL_LIMIT
 
 
-def check_rate_limit(tool_name: str, client_id: str) -> dict | None:
+def check_rate_limit(tool_name: str, client_id: str) -> None:
     """Check both per-tool and global rate limits for a client.
 
-    Returns None if the request is allowed, or an error dict
-    (matching the existing error response pattern) if rate-limited.
+    Raises RateLimitExceeded if the client has exceeded their limit.
+    FastMCP catches the exception and returns it as an is_error=True
+    response, which works regardless of the tool's return type.
     """
     limiter = get_limiter()
 
@@ -116,11 +125,12 @@ def check_rate_limit(tool_name: str, client_id: str) -> dict | None:
             "Rate limited: client=%s tool=%s (limit %d/%ds)",
             client_id, tool_name, tool_max, limiter.window_seconds,
         )
-        return {
-            "error": f"Rate limit exceeded for {tool_name}. "
-                     f"Max {tool_max} requests per {limiter.window_seconds}s.",
-            "retry_after": retry_after,
-        }
+        raise RateLimitExceeded(
+            f"Rate limit exceeded for {tool_name}. "
+            f"Max {tool_max} requests per {limiter.window_seconds}s. "
+            f"Retry after {retry_after}s.",
+            retry_after=retry_after,
+        )
 
     global_key = f"{client_id}:*"
     allowed, retry_after = limiter.check(global_key, GLOBAL_LIMIT)
@@ -129,10 +139,9 @@ def check_rate_limit(tool_name: str, client_id: str) -> dict | None:
             "Rate limited (global): client=%s (limit %d/%ds)",
             client_id, GLOBAL_LIMIT, limiter.window_seconds,
         )
-        return {
-            "error": f"Global rate limit exceeded. "
-                     f"Max {GLOBAL_LIMIT} tool calls per {limiter.window_seconds}s.",
-            "retry_after": retry_after,
-        }
-
-    return None
+        raise RateLimitExceeded(
+            f"Global rate limit exceeded. "
+            f"Max {GLOBAL_LIMIT} tool calls per {limiter.window_seconds}s. "
+            f"Retry after {retry_after}s.",
+            retry_after=retry_after,
+        )

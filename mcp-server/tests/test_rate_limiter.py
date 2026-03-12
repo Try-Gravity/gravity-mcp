@@ -12,6 +12,7 @@ from data.rate_limiter import (
     GENERATE_CODE_LIMIT,
     GLOBAL_LIMIT,
     TOOL_LIMIT,
+    RateLimitExceeded,
     RateLimiter,
     check_rate_limit,
     get_limiter,
@@ -126,30 +127,26 @@ class TestCheckRateLimit:
     def setup_method(self):
         get_limiter().reset()
 
-    def test_returns_none_when_allowed(self):
-        result = check_rate_limit("search_formats", "test-client")
-        assert result is None
+    def test_passes_when_allowed(self):
+        check_rate_limit("search_formats", "test-client")
 
-    def test_returns_error_dict_when_blocked(self):
+    def test_raises_when_blocked(self):
         with patch("data.rate_limiter.TOOL_LIMIT", 2):
             check_rate_limit("search_formats", "c1")
             check_rate_limit("search_formats", "c1")
-            result = check_rate_limit("search_formats", "c1")
-            assert result is not None
-            assert "error" in result
-            assert "retry_after" in result
-            assert result["retry_after"] >= 1
-            assert "search_formats" in result["error"]
+            with pytest.raises(RateLimitExceeded) as exc_info:
+                check_rate_limit("search_formats", "c1")
+            assert exc_info.value.retry_after >= 1
+            assert "search_formats" in str(exc_info.value)
 
     def test_per_tool_limits_are_independent(self):
         with patch("data.rate_limiter.TOOL_LIMIT", 2):
             check_rate_limit("search_formats", "c1")
             check_rate_limit("search_formats", "c1")
-            blocked = check_rate_limit("search_formats", "c1")
-            assert blocked is not None
+            with pytest.raises(RateLimitExceeded):
+                check_rate_limit("search_formats", "c1")
 
-            allowed = check_rate_limit("troubleshoot", "c1")
-            assert allowed is None
+            check_rate_limit("troubleshoot", "c1")
 
     def test_global_limit_caps_across_tools(self):
         with patch("data.rate_limiter.GLOBAL_LIMIT", 5):
@@ -158,32 +155,29 @@ class TestCheckRateLimit:
             for _ in range(2):
                 check_rate_limit("troubleshoot", "c1")
 
-            result = check_rate_limit("search_formats", "c1")
-            assert result is not None
-            assert "Global rate limit" in result["error"]
+            with pytest.raises(RateLimitExceeded) as exc_info:
+                check_rate_limit("search_formats", "c1")
+            assert "Global rate limit" in str(exc_info.value)
 
     def test_different_clients_are_independent(self):
         with patch("data.rate_limiter.GENERATE_CODE_LIMIT", 2):
             check_rate_limit("generate_code", "alice")
             check_rate_limit("generate_code", "alice")
-            blocked = check_rate_limit("generate_code", "alice")
-            assert blocked is not None
+            with pytest.raises(RateLimitExceeded):
+                check_rate_limit("generate_code", "alice")
 
-            allowed = check_rate_limit("generate_code", "bob")
-            assert allowed is None
+            check_rate_limit("generate_code", "bob")
 
     def test_generate_code_has_stricter_limit(self):
         assert GENERATE_CODE_LIMIT < TOOL_LIMIT
 
-    def test_error_dict_matches_existing_pattern(self):
-        """Rate limit errors follow the same {error: str} pattern
-        as validation errors from generate_code/build_theme."""
+    def test_exception_has_retry_after(self):
         with patch("data.rate_limiter.TOOL_LIMIT", 1):
             check_rate_limit("build_theme", "c1")
-            result = check_rate_limit("build_theme", "c1")
-            assert isinstance(result, dict)
-            assert isinstance(result["error"], str)
-            assert isinstance(result["retry_after"], int)
+            with pytest.raises(RateLimitExceeded) as exc_info:
+                check_rate_limit("build_theme", "c1")
+            assert isinstance(exc_info.value.retry_after, int)
+            assert exc_info.value.retry_after >= 1
 
     def test_default_constants(self):
         assert TOOL_LIMIT == 30
