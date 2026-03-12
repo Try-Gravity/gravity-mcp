@@ -5,6 +5,7 @@ Uses `{placement_id}`, `{placement}`, and `{format_code}` as substitution slots.
 
 SERVER_CODE = '''\
 // app/api/chat/route.ts
+// npm install @gravity-ai/api
 import {{ Gravity }} from '@gravity-ai/api';
 
 const gravity = new Gravity({{
@@ -38,6 +39,7 @@ export async function POST(request: Request) {{
 
 CLIENT_CODE = '''\
 // components/Chat.tsx
+// npm install @gravity-ai/js @gravity-ai/react
 'use client';
 import {{ useState }} from 'react';
 import {{ gravityContext }} from '@gravity-ai/js';

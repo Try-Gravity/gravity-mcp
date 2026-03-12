@@ -5,6 +5,7 @@ Uses `{placement_id}`, `{placement}`, and `{format_code}` as substitution slots.
 
 SERVER_CODE = '''\
 # main.py
+# pip install gravity-sdk
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from gravity_sdk import Gravity
@@ -52,6 +53,7 @@ async def chat(request: Request):
 
 CLIENT_CODE = '''\
 // components/Chat.tsx
+// npm install @gravity-ai/js @gravity-ai/react
 import {{ useState }} from 'react';
 import {{ gravityContext }} from '@gravity-ai/js';
 import {{ GravityAd }} from '@gravity-ai/react';
