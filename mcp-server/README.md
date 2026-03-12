@@ -1,6 +1,6 @@
 # Gravity MCP Server
 
-FastMCP server that helps publishers integrate Gravity ads into **FastAPI** or **Next.js** applications. Provides ad format discovery, paired server+client code generation, and troubleshooting.
+FastMCP server that helps publishers integrate Gravity ads into **FastAPI** or **Next.js** applications. Provides ad format discovery, theme matching, paired server+client code generation, and troubleshooting.
 
 ## Quick start
 
@@ -16,32 +16,34 @@ export PATH="$HOME/.local/bin:$PATH"
 ```bash
 cd mcp-server
 uv sync
-uv run python server.py
+uv run python server.py            # stdio transport (default, for Cursor)
+uv run python server.py sse        # SSE on port 8000 (for remote clients)
 ```
-
-The server starts on `http://0.0.0.0:8000`. MCP endpoint at `http://localhost:8000/mcp`.
 
 ### Docker
 
 ```bash
 # From the repo root
+cp .env.example .env
 docker compose up --build -d
 
 # Verify
-curl http://localhost:8000/health   # → OK
-docker compose logs -f              # watch logs
-docker compose down                 # stop
+curl http://localhost:8000/health    # → OK
+curl http://localhost:8000/version   # → {"version":"0.2.0"}
+docker compose logs -f               # watch logs
+docker compose down                  # stop
 ```
 
-The `data/` directory is mounted as a volume so `placements.csv` persists across restarts.
+The `placements` volume persists `placements.csv` across container restarts. The CSV auto-rotates at 10,000 rows.
 
 ## Tools
 
 | Tool | Description |
 |------|-------------|
 | `search_formats` | Browse 25 ad formats with query/category filters and progressive detail levels |
-| `generate_code` | Generate paired FastAPI or Next.js server code + React client code with a unique `placement_id` |
-| `troubleshoot` | Diagnose common integration issues from symptom descriptions |
+| `build_theme` | Generate theme-matched style + slotProps from site design tokens (bg_color, accent_color, etc.) |
+| `generate_code` | Generate paired FastAPI or Next.js server code + React client code with theme baked in |
+| `troubleshoot` | Diagnose common integration issues from symptom descriptions (fuzzy + keyword matching) |
 
 ## Resources
 
@@ -55,9 +57,9 @@ Doc topics: `ad-response`, `styling`, `react-component`, `server-sdk`, `js-sdk`,
 
 ## Prompt
 
-`integrate_gravity_ads(framework, format)` — step-by-step guide for integrating ads into a publisher's app.
+`integrate_gravity_ads(framework, format)` — step-by-step guide for integrating ads into a publisher's app. Automatically instructs the LLM to extract site theme tokens before generating code.
 
-## Connect from Cursor
+## Connect from Cursor (stdio)
 
 Add to `~/.cursor/mcp.json`:
 
@@ -65,13 +67,14 @@ Add to `~/.cursor/mcp.json`:
 {
   "mcpServers": {
     "gravity": {
-      "url": "http://localhost:8000/mcp"
+      "command": "/path/to/uv",
+      "args": ["run", "--directory", "/path/to/gravity-mcp/mcp-server", "python", "server.py"]
     }
   }
 }
 ```
 
-Restart Cursor or reload MCP servers. The 3 tools will appear in the tool list.
+Replace paths with your local values (`which uv` for the command). Restart Cursor to pick up changes.
 
 ## Testing
 
@@ -79,9 +82,15 @@ Restart Cursor or reload MCP servers. The 3 tools will appear in the tool list.
 cd mcp-server
 
 # Unit tests (no server needed)
-uv run pytest tests/ -v
+uv run pytest tests/test_tools.py -v
 
-# Smoke tests (server must be running)
-uv run python server.py &
+# Smoke tests (server must be running on port 8000)
+uv run python server.py sse &
 uv run python tests/smoke_test.py
 ```
+
+## Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOG_LEVEL` | `INFO` | Python log level (DEBUG, INFO, WARNING, ERROR) |

@@ -24,3 +24,5 @@ node_modules/
 
 # Data (created at runtime)
 mcp-server/data/placements.csv
+mcp-server/data/placements.csv.lock
+mcp-server/data/placements.csv.bak

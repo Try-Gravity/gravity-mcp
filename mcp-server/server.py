@@ -2,17 +2,29 @@
 
 from __future__ import annotations
 
+import logging
+import os
 from typing import Literal
 
 from fastmcp import FastMCP
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse
+from starlette.responses import JSONResponse, PlainTextResponse
 
 from resources.docs import get_doc_topic, get_format_detail, get_formats_index
 from tools.build_theme import build_theme as _build_theme
 from tools.generate_code import generate_code as _generate_code
 from tools.search_formats import search_formats as _search_formats
 from tools.troubleshoot import troubleshoot as _troubleshoot
+
+__version__ = "0.2.0"
+
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%S",
+)
+logger = logging.getLogger("gravity")
 
 mcp = FastMCP(
     "Gravity Ads Integration",
@@ -40,6 +52,7 @@ def search_formats(
         category: Filter by SDK variant type (e.g. "card", "inline", "banner").
         detail: "names" for name list, "summary" for name/description/type, "full" includes code.
     """
+    logger.info("search_formats query=%s category=%s detail=%s", query, category, detail)
     return _search_formats(query=query, category=category, detail=detail)
 
 
@@ -68,6 +81,7 @@ def build_theme(
         border_radius: Border radius in pixels.
         font_family: CSS font-family string (e.g. "Inter, sans-serif").
     """
+    logger.info("build_theme bg=%s accent=%s", bg_color, accent_color)
     return _build_theme(
         bg_color=bg_color,
         text_color=text_color,
@@ -113,6 +127,7 @@ def generate_code(
         border_radius: Border radius in pixels.
         font_family: CSS font-family string.
     """
+    logger.info("generate_code format=%s fw=%s stream=%s placement=%s", format, framework, streaming, placement)
     return _generate_code(
         format=format,
         framework=framework,
@@ -136,6 +151,7 @@ def troubleshoot(symptom: str) -> dict:
     Args:
         symptom: Description of the problem (e.g. "no ads showing", "401", "CORS error").
     """
+    logger.info("troubleshoot symptom=%s", symptom)
     return _troubleshoot(symptom=symptom)
 
 
@@ -245,10 +261,16 @@ async def health(request: Request) -> PlainTextResponse:
     return PlainTextResponse("OK")
 
 
+@mcp.custom_route("/version", ["GET"])
+async def version(request: Request) -> JSONResponse:
+    return JSONResponse({"version": __version__})
+
+
 if __name__ == "__main__":
     import sys
 
     transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
+    logger.info("Starting Gravity MCP server v%s transport=%s", __version__, transport)
     if transport == "http":
         mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)
     elif transport == "sse":
