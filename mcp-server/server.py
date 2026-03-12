@@ -11,6 +11,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 
 from data.auth import get_api_key, hash_key, validate_api_key
+from data.rate_limiter import check_rate_limit
 from resources.docs import get_doc_topic, get_format_detail, get_formats_index
 from tools.build_theme import build_theme as _build_theme
 from tools.generate_code import Placement, generate_code as _generate_code
@@ -26,6 +27,12 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S",
 )
 logger = logging.getLogger("gravity")
+
+def _client_id() -> str:
+    """Derive a rate-limit identity from the publisher API key, or 'anonymous'."""
+    key = get_api_key()
+    return hash_key(key) if key else "anonymous"
+
 
 mcp = FastMCP(
     "Gravity Ads Integration",
@@ -54,6 +61,9 @@ def search_formats(
         detail: "names" for name list, "summary" for name/description/type, "full" includes code.
     """
     logger.info("search_formats query=%s category=%s detail=%s", query, category, detail)
+    limit_err = check_rate_limit("search_formats", _client_id())
+    if limit_err:
+        return limit_err
     return _search_formats(query=query, category=category, detail=detail)
 
 
@@ -83,6 +93,9 @@ def build_theme(
         font_family: CSS font-family string (e.g. "Inter, sans-serif").
     """
     logger.info("build_theme bg=%s accent=%s", bg_color, accent_color)
+    limit_err = check_rate_limit("build_theme", _client_id())
+    if limit_err:
+        return limit_err
     return _build_theme(
         bg_color=bg_color,
         text_color=text_color,
@@ -135,6 +148,9 @@ def generate_code(
         font_family: CSS font-family string.
     """
     logger.info("generate_code format=%s fw=%s stream=%s placement=%s placement_id=%s", format, framework, streaming, placement, placement_id)
+    limit_err = check_rate_limit("generate_code", _client_id())
+    if limit_err:
+        return limit_err
 
     api_key = get_api_key()
     if api_key:
@@ -171,6 +187,9 @@ def troubleshoot(symptom: str) -> dict:
         symptom: Description of the problem (e.g. "no ads showing", "401", "CORS error").
     """
     logger.info("troubleshoot symptom=%s", symptom)
+    limit_err = check_rate_limit("troubleshoot", _client_id())
+    if limit_err:
+        return limit_err
     return _troubleshoot(symptom=symptom)
 
 
