@@ -17,7 +17,7 @@ export PATH="$HOME/.local/bin:$PATH"
 cd mcp-server
 uv sync
 uv run python server.py            # stdio transport (default, for Cursor)
-uv run python server.py sse        # SSE on port 8000 (for remote clients)
+uv run python server.py http       # Streamable HTTP on port 8000 (for remote clients)
 ```
 
 ### Docker
@@ -70,7 +70,7 @@ Add to `~/.cursor/mcp.json`:
 {
   "mcpServers": {
     "gravity": {
-      "url": "https://gravity-mcp-server-production-8e67.up.railway.app/sse",
+      "url": "https://gravity-mcp-server-production-8e67.up.railway.app/mcp",
       "headers": {
         "Authorization": "Bearer your-api-key-here"
       }
@@ -115,7 +115,7 @@ If your MCP client doesn't support `url` connections directly, use the SSE trans
       "command": "npx",
       "args": [
         "-y", "mcp-remote",
-        "https://gravity-mcp-server-production-8e67.up.railway.app/sse",
+        "https://gravity-mcp-server-production-8e67.up.railway.app/mcp",
         "--header",
         "Authorization:${GRAVITY_API_KEY}"
       ],
@@ -227,7 +227,7 @@ https://gravity-mcp-server-production-8e67.up.railway.app
 |----------|-------------|
 | `/health` | Health check — returns `OK` |
 | `/version` | Returns `{"version": "0.2.0"}` |
-| `/sse` | SSE transport for MCP clients |
+| `/mcp` | Streamable HTTP transport for MCP clients |
 
 ### Deploy your own instance
 
@@ -236,7 +236,7 @@ https://gravity-mcp-server-production-8e67.up.railway.app
 3. Set **Root Directory** to `mcp-server`
 4. Add a **PostgreSQL** service — Railway auto-injects `DATABASE_URL`
 5. Deploy — the `placements` table is auto-created on first request
-6. Your MCP endpoint is `https://<app>.up.railway.app/sse`
+6. Your MCP endpoint is `https://<app>.up.railway.app/mcp`
 
 ### Redeploy from CLI
 

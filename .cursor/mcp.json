@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "gravity-mcp": {
+      "url": "http://localhost:8000/mcp"
+    }
+  }
+}
