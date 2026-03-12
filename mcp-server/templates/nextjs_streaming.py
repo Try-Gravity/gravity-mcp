@@ -54,13 +54,14 @@ export async function POST(request: Request) {{
 CLIENT_CODE = '''\
 // components/Chat.tsx
 'use client';
-import {{ useState }} from 'react';
+import {{ useState, useRef }} from 'react';
 import {{ gravityContext }} from '@gravity-ai/js';
 import {{ GravityAd }} from '@gravity-ai/react';
 import type {{ AdResponse }} from '@gravity-ai/react';
 
 export default function Chat() {{
   const [ad, setAd] = useState<AdResponse | null>(null);
+  const sessionRef = useRef(crypto.randomUUID());
 
   async function sendMessage(messages: {{ role: string; content: string }}[]) {{
     const res = await fetch('/api/chat', {{
@@ -69,7 +70,7 @@ export default function Chat() {{
       body: JSON.stringify({{
         messages,
         gravity_context: gravityContext({{
-          sessionId: 'session-123',
+          sessionId: sessionRef.current,
           user: {{ userId: 'user-456' }},
         }}),
       }}),

@@ -58,7 +58,7 @@ TROUBLESHOOT_KB: list[dict[str, str]] = [
         "reference_url": "https://docs.trygravity.ai/react#click-tracking",
     },
     {
-        "keywords": "gravityContext,gravity_context,context missing,missing context,session,device,no context",
+        "keywords": "gravityContext,gravity_context,context missing,missing context,device,no context",
         "symptom": "gravity_context missing from request body",
         "cause": "The client is not calling `gravityContext()` and sending it in the request body. The server SDK reads `req.body.gravity_context` to extract session, user, and device information.",
         "fix": "On the client side, call `gravityContext()` and include it in every chat request:\n```\nimport { gravityContext } from '@gravity-ai/js';\n\nconst body = {\n  messages,\n  gravity_context: gravityContext({\n    sessionId: 'your-session-id',\n    user: { userId: 'user-123' },\n  }),\n};\nfetch('/api/chat', { method: 'POST', body: JSON.stringify(body) });\n```",
@@ -70,5 +70,12 @@ TROUBLESHOOT_KB: list[dict[str, str]] = [
         "cause": "Using a placement value that is not in the allowed set. Only 5 placements are supported: `above_response`, `below_response`, `inline_response`, `left_response`, `right_response`.",
         "fix": "Use one of the allowed placement values:\n```\nplacements: [\n  { placement: 'below_response', placement_id: 'my-ad-slot' }\n]\n```\nAds must be placed adjacent to AI-generated content only.",
         "reference_url": "https://docs.trygravity.ai/quickstart#placements",
+    },
+    {
+        "keywords": "sessionId,session id,same session,hardcoded session,session not persisted,new session every request,session keeps changing",
+        "symptom": "Hardcoded or rotating sessionId — degraded ad targeting",
+        "cause": "The `sessionId` in `gravityContext()` is hardcoded (e.g. `'session-123'`) or regenerated on every request. Gravity uses `sessionId` to tie multiple messages in a conversation together for ad relevancy.",
+        "fix": "Generate the sessionId once per conversation and reuse it across messages. In React, use `useRef`:\n```\nconst sessionRef = useRef(crypto.randomUUID());\n// pass sessionRef.current as sessionId\n```\nIn vanilla JS, generate once and store in a variable or sessionStorage:\n```\nconst sessionId = sessionStorage.getItem('gravity_session') || crypto.randomUUID();\nsessionStorage.setItem('gravity_session', sessionId);\n```",
+        "reference_url": "https://docs.trygravity.ai/quickstart#client-context",
     },
 ]

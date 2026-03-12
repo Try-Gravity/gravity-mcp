@@ -396,7 +396,7 @@ import { gravityContext } from '@gravity-ai/js';
 const body = {
   messages,
   gravity_context: gravityContext({
-    sessionId: 'session-123',
+    sessionId: crypto.randomUUID(),  // generate once per conversation, reuse across messages
     user: { userId: 'user-456' },
   }),
 };
