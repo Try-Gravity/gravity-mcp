@@ -75,7 +75,7 @@ TROUBLESHOOT_KB: list[dict[str, str]] = [
         "keywords": "sessionId,session id,same session,hardcoded session,session not persisted,new session every request,session keeps changing",
         "symptom": "Hardcoded or rotating sessionId — degraded ad targeting",
         "cause": "The `sessionId` in `gravityContext()` is hardcoded (e.g. `'session-123'`) or regenerated on every request. Gravity uses `sessionId` to tie multiple messages in a conversation together for ad relevancy.",
-        "fix": "Use your app's conversation/session ID — don't hardcode or regenerate on every request. In React, use `useRef`:\n```\nconst sessionRef = useRef(chatSession.id);\n// pass sessionRef.current as sessionId\n```\nIf you don't have a session ID yet, `crypto.randomUUID()` works as a fallback — just generate it once per conversation and reuse across messages:\n```\nconst sessionId = sessionStorage.getItem('gravity_session') || crypto.randomUUID();\nsessionStorage.setItem('gravity_session', sessionId);\n```",
+        "fix": "`sessionId` and `userId` are required — the API will return a 422 if they are missing or null. Use your app's real conversation/session ID and authenticated user ID:\n```\ngravityContext({\n  sessionId: chatSession.id,  // your conversation ID\n  user: { userId: currentUser.id },  // your authenticated user ID\n})\n```\nDo NOT use hardcoded strings like `'session-123'` or random UUIDs — these break ad targeting across messages in the same conversation.",
         "reference_url": "https://docs.trygravity.ai/quickstart#client-context",
     },
 ]

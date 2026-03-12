@@ -52,15 +52,17 @@ async def chat(request: Request):
 
 CLIENT_CODE = '''\
 // components/Chat.tsx
-import {{ useState, useRef }} from 'react';
+import {{ useState }} from 'react';
 import {{ gravityContext }} from '@gravity-ai/js';
 import {{ GravityAd }} from '@gravity-ai/react';
 import type {{ AdResponse }} from '@gravity-ai/react';
 
+// TODO: wire these to your app's real session + user identity
+const SESSION_ID: string = null!;  // e.g. chatSession.id or route param
+const USER_ID: string = null!;     // e.g. currentUser.id from your auth
+
 export default function Chat() {{
   const [ad, setAd] = useState<AdResponse | null>(null);
-  // Replace with your app's conversation/session ID and authenticated user ID
-  const sessionRef = useRef(crypto.randomUUID());
 
   async function sendMessage(messages: {{ role: string; content: string }}[]) {{
     const res = await fetch('/api/chat', {{
@@ -69,8 +71,8 @@ export default function Chat() {{
       body: JSON.stringify({{
         messages,
         gravity_context: gravityContext({{
-          sessionId: sessionRef.current,
-          user: {{ userId: currentUser.id }},
+          sessionId: SESSION_ID,
+          user: {{ userId: USER_ID }},
         }}),
       }}),
     }});
