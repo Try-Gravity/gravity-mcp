@@ -1,7 +1,7 @@
-"""Smoke tests — run against the live MCP server on http://localhost:8000/mcp.
+"""Smoke tests — run against the live MCP server on http://localhost:8000.
 
 Usage:
-    uv run python server.py  # in one terminal
+    uv run python server.py  # in one terminal (SSE on /sse by default)
     uv run python tests/smoke_test.py  # in another
 """
 
@@ -13,7 +13,7 @@ from pathlib import Path
 
 from fastmcp import Client
 
-client = Client("http://localhost:8000/mcp")
+client = Client("http://localhost:8000/sse")
 
 
 async def smoke():

@@ -243,4 +243,12 @@ async def health(request: Request) -> PlainTextResponse:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)
+    import sys
+
+    transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
+    if transport == "http":
+        mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)
+    elif transport == "sse":
+        mcp.run(transport="sse", host="0.0.0.0", port=8000)
+    else:
+        mcp.run(transport="stdio")
