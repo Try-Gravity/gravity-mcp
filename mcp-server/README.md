@@ -91,14 +91,15 @@ Add to `~/.cursor/mcp.json`:
       "command": "/path/to/uv",
       "args": ["run", "--directory", "/path/to/gravity-mcp/mcp-server", "python", "server.py"],
       "env": {
-        "DATABASE_URL": "postgresql://gravity:gravity@localhost:5432/gravity"
+        "DATABASE_URL": "postgresql://gravity:gravity@localhost:5432/gravity",
+        "GRAVITY_API_KEY": "your-api-key-here"
       }
     }
   }
 }
 ```
 
-Replace paths with your local values (`which uv` for the command). The `DATABASE_URL` env var requires the Docker Postgres to be running (`docker compose up db -d`). Restart Cursor to pick up changes.
+Replace paths with your local values (`which uv` for the command). Get your API key from [trygravity.ai/dashboard](https://trygravity.ai/dashboard). The `DATABASE_URL` env var requires the Docker Postgres to be running (`docker compose up db -d`). Restart Cursor to pick up changes.
 
 ### Option C: Remote via `npx`
 
@@ -131,6 +132,7 @@ uv run python tests/smoke_test.py
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `GRAVITY_API_KEY` | _(empty)_ | Publisher API key from [trygravity.ai/dashboard](https://trygravity.ai/dashboard). Required for ad serving. Can also be passed via `Authorization: Bearer <key>` header on SSE/HTTP connections. |
 | `LOG_LEVEL` | `INFO` | Python log level (DEBUG, INFO, WARNING, ERROR) |
 | `DATABASE_URL` | _(empty)_ | PostgreSQL connection string. Auto-injected by Railway. For local dev: `postgresql://gravity:gravity@localhost:5432/gravity` |
 | `PORT` | `8000` | HTTP server port. Auto-injected by Railway. |

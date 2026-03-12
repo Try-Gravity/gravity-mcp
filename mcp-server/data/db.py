@@ -20,13 +20,18 @@ CREATE TABLE IF NOT EXISTS placements (
     framework TEXT NOT NULL,
     platform TEXT NOT NULL DEFAULT 'web',
     performance TEXT DEFAULT '',
+    publisher_key_hash TEXT DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 """
 
+_MIGRATE_SQL = """
+ALTER TABLE placements ADD COLUMN IF NOT EXISTS publisher_key_hash TEXT DEFAULT '';
+"""
+
 _INSERT_SQL = """
-INSERT INTO placements (placement_id, placement, style, type, framework, platform, performance, created_at)
-VALUES (%(placement_id)s, %(placement)s, %(style)s, %(type)s, %(framework)s, %(platform)s, %(performance)s, %(created_at)s)
+INSERT INTO placements (placement_id, placement, style, type, framework, platform, performance, publisher_key_hash, created_at)
+VALUES (%(placement_id)s, %(placement)s, %(style)s, %(type)s, %(framework)s, %(platform)s, %(performance)s, %(publisher_key_hash)s, %(created_at)s)
 ON CONFLICT (placement_id) DO NOTHING
 """
 
@@ -44,6 +49,7 @@ def _ensure_table(conn: psycopg.Connection) -> None:
     global _table_ready
     if not _table_ready:
         conn.execute(_ENSURE_TABLE_SQL)
+        conn.execute(_MIGRATE_SQL)
         _table_ready = True
 
 

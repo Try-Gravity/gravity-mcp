@@ -8,11 +8,12 @@ SERVER_CODE = '''\
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from gravity_sdk import Gravity
-import json, asyncio
+import json, asyncio, os
 
 app = FastAPI()
 
 gravity = Gravity(
+    api_key=os.environ["GRAVITY_API_KEY"],
     # production=True,  # ← uncomment when ready to serve real ads
 )
 

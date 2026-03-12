@@ -185,6 +185,8 @@ def generate_code(
     framework: Literal["fastapi", "nextjs"] = "fastapi",
     streaming: bool = True,
     placement: Placement = "below_response",
+    api_key: str | None = None,
+    publisher_key_hash: str = "",
     theme: Literal["light", "dark"] | None = None,
     bg_color: str | None = None,
     text_color: str | None = None,
@@ -304,6 +306,7 @@ def generate_code(
             "framework": framework,
             "platform": "web",
             "performance": "",
+            "publisher_key_hash": publisher_key_hash,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
     )
@@ -324,4 +327,10 @@ def generate_code(
             "slotProps": theme_result["slotProps"],
             "is_dark": theme_result["is_dark"],
         }
+    if not api_key:
+        result["warning"] = (
+            "No GRAVITY_API_KEY detected. The generated code will work but "
+            "ads will not serve without a valid key. Set GRAVITY_API_KEY in your "
+            "environment or pass it via Authorization: Bearer <key> header."
+        )
     return result
