@@ -84,6 +84,7 @@ def generate_code(
     format: str,
     framework: Literal["fastapi", "nextjs"] = "fastapi",
     streaming: bool = True,
+    placement: str = "below_response",
     theme: Literal["light", "dark"] | None = None,
     bg_color: str | None = None,
     text_color: str | None = None,
@@ -102,6 +103,7 @@ def generate_code(
         format: Ad format name (e.g. "floating", "card", "banner").
         framework: "fastapi" or "nextjs".
         streaming: True for SSE streaming, False for JSON response.
+        placement: Ad position relative to AI response. One of: above_response, below_response, inline_response, left_response, right_response.
         theme: Preset — "dark" auto-fills dark palette. Color params override preset.
         bg_color: Site background color. Drives automatic dark/light detection.
         text_color: Primary text color.
@@ -115,6 +117,7 @@ def generate_code(
         format=format,
         framework=framework,
         streaming=streaming,
+        placement=placement,
         theme=theme,
         bg_color=bg_color,
         text_color=text_color,

@@ -1,4 +1,4 @@
-"""Unit tests for all 3 MCP tools — runs without the server process."""
+"""Unit tests for all MCP tools — runs without the server process."""
 
 from __future__ import annotations
 
@@ -67,6 +67,13 @@ class TestSearchFormats:
     def test_empty_results(self):
         r = search_formats(query="xyznonexistent", detail="names")
         assert r == []
+
+    def test_category_case_insensitive(self):
+        lower = search_formats(category="card", detail="names")
+        upper = search_formats(category="CARD", detail="names")
+        mixed = search_formats(category="Card", detail="names")
+        assert lower == upper == mixed
+        assert len(lower) > 0
 
 
 # ── generate_code ────────────────────────────────────────────────────────────
@@ -147,6 +154,41 @@ class TestGenerateCode:
             assert "client_code" in r, f"{framework}/streaming={streaming} missing client_code"
             assert "placement_id" in r, f"{framework}/streaming={streaming} missing placement_id"
 
+    def test_theme_merged_into_jsx_not_comments(self):
+        r = generate_code(
+            format="card", framework="fastapi", streaming=False,
+            bg_color="#0f172a", accent_color="#38bdf8",
+        )
+        assert "// Theme overrides" not in r["client_code"]
+        assert "// Apply these props" not in r["client_code"]
+        assert "#0f172a" in r["client_code"]
+        assert "#38bdf8" in r["client_code"]
+
+    def test_theme_preserves_format_layout_props(self):
+        r = generate_code(
+            format="notification", framework="fastapi", streaming=False,
+            bg_color="#1a1a2e",
+        )
+        assert "maxWidth" in r["client_code"]
+        assert "#1a1a2e" in r["client_code"]
+
+    def test_placement_param_in_server_code(self):
+        r = generate_code(
+            format="card", framework="fastapi", streaming=True,
+            placement="above_response",
+        )
+        assert "above_response" in r["server_code"]
+        assert "below_response" not in r["server_code"]
+
+    def test_invalid_placement_rejected(self):
+        r = generate_code(format="card", placement="somewhere_random")
+        assert "error" in r
+        assert "Invalid placement" in r["error"]
+
+    def test_default_placement_is_below_response(self):
+        r = generate_code(format="card", framework="fastapi", streaming=True)
+        assert "below_response" in r["server_code"]
+
 
 # ── troubleshoot ─────────────────────────────────────────────────────────────
 
@@ -173,6 +215,22 @@ class TestTroubleshoot:
                 for kw in keywords
             )
             assert reached, f"KB entry unreachable: {entry['symptom']}"
+
+    def test_fuzzy_match_impressions_not_counting(self):
+        r = troubleshoot(symptom="impressions not counting")
+        assert "impression" in r["symptom"].lower()
+
+    def test_fuzzy_match_test_ads(self):
+        r = troubleshoot(symptom="test ads")
+        assert r["cause"] != "No matching diagnosis found."
+
+    def test_fuzzy_match_wrong_page(self):
+        r = troubleshoot(symptom="the ad link goes to the wrong page")
+        assert "click" in r["symptom"].lower() or "link" in r["symptom"].lower() or "landing" in r["symptom"].lower()
+
+    def test_fuzzy_match_clicks_dont_track(self):
+        r = troubleshoot(symptom="ads load but clicks don't track")
+        assert r["cause"] != "No matching diagnosis found."
 
 
 # ── build_theme ─────────────────────────────────────────────────────────────
@@ -220,3 +278,17 @@ class TestBuildTheme:
         assert r["slotProps"]["cta"]["style"]["color"] == "#18181B"
         r = build_theme(accent_color="#000080")
         assert r["slotProps"]["cta"]["style"]["color"] == "#FAFAFA"
+
+    def test_invalid_hex_rejected(self):
+        r = build_theme(bg_color="not-a-color")
+        assert "error" in r
+
+    def test_invalid_accent_hex_rejected(self):
+        r = build_theme(accent_color="red")
+        assert "error" in r
+        assert "accent_color" in r["error"]
+
+    def test_valid_short_hex_accepted(self):
+        r = build_theme(bg_color="#FFF")
+        assert "error" not in r
+        assert r["is_dark"] is False

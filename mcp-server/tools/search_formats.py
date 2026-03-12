@@ -26,7 +26,8 @@ def search_formats(
     entries = list(FORMAT_CATALOG.values())
 
     if category:
-        entries = [e for e in entries if e["type"] == category]
+        cat_lower = category.lower()
+        entries = [e for e in entries if e["type"].lower() == cat_lower]
 
     if query:
         q = query.lower()

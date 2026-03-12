@@ -2,6 +2,22 @@
 
 from __future__ import annotations
 
+import re
+
+_HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
+
+def _validate_hex(value: str | None, param_name: str) -> str | None:
+    """Return an error message if value is not a valid hex color, or None."""
+    if value is None:
+        return None
+    if not _HEX_RE.match(value):
+        return (
+            f"Invalid hex color for {param_name}: '{value}'. "
+            "Expected format: '#RGB' or '#RRGGBB' (e.g. '#FFF', '#1a1a2e')."
+        )
+    return None
+
 
 def _parse_hex(hex_color: str) -> tuple[int, int, int]:
     """Parse a hex color string (#RGB, #RRGGBB) into (r, g, b)."""
@@ -23,11 +39,8 @@ def _relative_luminance(r: int, g: int, b: int) -> float:
 
 def _is_dark(hex_color: str) -> bool:
     """Return True if the color is perceptually dark (luminance < 0.4)."""
-    try:
-        r, g, b = _parse_hex(hex_color)
-        return _relative_luminance(r, g, b) < 0.4
-    except (ValueError, IndexError):
-        return False
+    r, g, b = _parse_hex(hex_color)
+    return _relative_luminance(r, g, b) < 0.4
 
 
 def _contrast_text(bg_hex: str) -> str:
@@ -73,7 +86,19 @@ def build_theme(
     Returns:
         Dict with `style`, `slotProps`, and `code_snippet` — a ready-to-use
         JSX prop block that can be spread onto `<GravityAd />`.
+        Returns `error` key if any color parameter is not valid hex.
     """
+    for name, val in [
+        ("bg_color", bg_color),
+        ("text_color", text_color),
+        ("accent_color", accent_color),
+        ("secondary_color", secondary_color),
+        ("border_color", border_color),
+    ]:
+        err = _validate_hex(val, name)
+        if err:
+            return {"error": err}
+
     bg = bg_color or "#FFFFFF"
     dark = _is_dark(bg)
 
@@ -106,12 +131,13 @@ def build_theme(
         "cta": {"style": {"background": accent, "color": _contrast_text(accent)}},
     }
 
-    # Build the code snippet
-    style_lines = ",\n    ".join(f"{k}: '{v}'" for k, v in style.items())
+    style_lines = ",\n    ".join(
+        f"{k}: {_jsx_val(v)}" for k, v in style.items()
+    )
     slot_lines = []
     for slot_name, slot_val in slot_props.items():
         inner = ", ".join(
-            f"{sk}: '{sv}'" for sk, sv in slot_val["style"].items()
+            f"{sk}: {_jsx_val(sv)}" for sk, sv in slot_val["style"].items()
         )
         slot_lines.append(f"    {slot_name}: {{ style: {{ {inner} }} }}")
     slot_block = ",\n".join(slot_lines)
@@ -130,3 +156,10 @@ def build_theme(
         "code_snippet": code_snippet,
         "is_dark": dark,
     }
+
+
+def _jsx_val(v: object) -> str:
+    """Format a value for JSX: strings get quotes, numbers stay bare."""
+    if isinstance(v, str):
+        return f"'{v}'"
+    return str(v)

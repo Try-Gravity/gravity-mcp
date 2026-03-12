@@ -1,6 +1,6 @@
 """FastAPI + SSE streaming template.
 
-Uses `{placement_id}` and `{format_code}` as substitution slots.
+Uses `{placement_id}`, `{placement}`, and `{format_code}` as substitution slots.
 """
 
 SERVER_CODE = '''\
@@ -27,7 +27,7 @@ async def chat(request: Request):
         gravity.get_ads(
             request,
             messages,
-            [{{"placement": "below_response", "placement_id": "{placement_id}"}}],
+            [{{"placement": "{placement}", "placement_id": "{placement_id}"}}],
         )
     )
 
