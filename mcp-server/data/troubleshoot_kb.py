@@ -61,7 +61,7 @@ TROUBLESHOOT_KB: list[dict[str, str]] = [
         "keywords": "gravityContext,gravity_context,context missing,missing context,device,no context",
         "symptom": "gravity_context missing from request body",
         "cause": "The client is not calling `gravityContext()` and sending it in the request body. The server SDK reads `req.body.gravity_context` to extract session, user, and device information.",
-        "fix": "On the client side, call `gravityContext()` and include it in every chat request:\n```\nimport { gravityContext } from '@gravity-ai/js';\n\nconst body = {\n  messages,\n  gravity_context: gravityContext({\n    sessionId: 'your-session-id',\n    user: { userId: 'user-123' },\n  }),\n};\nfetch('/api/chat', { method: 'POST', body: JSON.stringify(body) });\n```",
+        "fix": "On the client side, call `gravityContext()` and include it in every chat request. Both `sessionId` and `userId` are required — use your app's own conversation/session ID and authenticated user ID:\n```\nimport { gravityContext } from '@gravity-ai/js';\n\nconst body = {\n  messages,\n  gravity_context: gravityContext({\n    sessionId: chatSession.id,\n    user: { userId: currentUser.id },\n  }),\n};\nfetch('/api/chat', { method: 'POST', body: JSON.stringify(body) });\n```",
         "reference_url": "https://docs.trygravity.ai/quickstart#client-context",
     },
     {
@@ -75,7 +75,7 @@ TROUBLESHOOT_KB: list[dict[str, str]] = [
         "keywords": "sessionId,session id,same session,hardcoded session,session not persisted,new session every request,session keeps changing",
         "symptom": "Hardcoded or rotating sessionId — degraded ad targeting",
         "cause": "The `sessionId` in `gravityContext()` is hardcoded (e.g. `'session-123'`) or regenerated on every request. Gravity uses `sessionId` to tie multiple messages in a conversation together for ad relevancy.",
-        "fix": "Generate the sessionId once per conversation and reuse it across messages. In React, use `useRef`:\n```\nconst sessionRef = useRef(crypto.randomUUID());\n// pass sessionRef.current as sessionId\n```\nIn vanilla JS, generate once and store in a variable or sessionStorage:\n```\nconst sessionId = sessionStorage.getItem('gravity_session') || crypto.randomUUID();\nsessionStorage.setItem('gravity_session', sessionId);\n```",
+        "fix": "Use your app's conversation/session ID — don't hardcode or regenerate on every request. In React, use `useRef`:\n```\nconst sessionRef = useRef(chatSession.id);\n// pass sessionRef.current as sessionId\n```\nIf you don't have a session ID yet, `crypto.randomUUID()` works as a fallback — just generate it once per conversation and reuse across messages:\n```\nconst sessionId = sessionStorage.getItem('gravity_session') || crypto.randomUUID();\nsessionStorage.setItem('gravity_session', sessionId);\n```",
         "reference_url": "https://docs.trygravity.ai/quickstart#client-context",
     },
 ]

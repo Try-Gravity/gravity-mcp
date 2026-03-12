@@ -396,8 +396,8 @@ import { gravityContext } from '@gravity-ai/js';
 const body = {
   messages,
   gravity_context: gravityContext({
-    sessionId: crypto.randomUUID(),  // generate once per conversation, reuse across messages
-    user: { userId: 'user-456' },
+    sessionId: chatSession.id,  // your conversation/session ID
+    user: { userId: currentUser.id },  // your authenticated user's ID
   }),
 };
 fetch('/api/chat', { method: 'POST', body: JSON.stringify(body) });

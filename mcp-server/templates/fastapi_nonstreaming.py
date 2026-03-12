@@ -50,6 +50,7 @@ import type {{ AdResponse }} from '@gravity-ai/react';
 
 export default function Chat() {{
   const [ad, setAd] = useState<AdResponse | null>(null);
+  // Replace with your app's conversation/session ID and authenticated user ID
   const sessionRef = useRef(crypto.randomUUID());
 
   async function sendMessage(messages: {{ role: string; content: string }}[]) {{
@@ -60,7 +61,7 @@ export default function Chat() {{
         messages,
         gravity_context: gravityContext({{
           sessionId: sessionRef.current,
-          user: {{ userId: 'user-456' }},
+          user: {{ userId: currentUser.id }},
         }}),
       }}),
     }});
