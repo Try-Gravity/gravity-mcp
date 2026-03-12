@@ -11,6 +11,7 @@ from typing import Literal
 
 from data.style_type_map import STYLE_TYPE_MAP
 from resources.format_catalog import FORMAT_CATALOG
+from tools.build_theme import build_theme as _build_theme
 
 _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 _CSV_PATH = _DATA_DIR / "placements.csv"
@@ -24,25 +25,13 @@ _CSV_FIELDS = [
     "created_at",
 ]
 
-DARK_MODE_SNIPPET = """\
-
-// Dark mode styling
-// Append these slotProps to your <GravityAd /> for dark backgrounds:
-//
-// style={{
-//   background: '#18181B',
-//   color: '#FAFAFA',
-//   border: '1px solid #3F3F46',
-//   boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-// }}
-// slotProps={{
-//   brand: { style: { color: '#FAFAFA' } },
-//   title: { style: { color: '#FAFAFA' } },
-//   text:  { style: { color: '#A1A1AA' } },
-//   label: { style: { color: '#A1A1AA', border: '1px solid #3F3F46' } },
-//   cta:   { style: { background: '#3B82F6' } },
-// }}
-"""
+_DARK_PRESET = {
+    "bg_color": "#18181B",
+    "text_color": "#FAFAFA",
+    "accent_color": "#3B82F6",
+    "secondary_color": "#A1A1AA",
+    "border_color": "#3F3F46",
+}
 
 _TEMPLATE_MAP: dict[tuple[str, bool], str] = {
     ("fastapi", True): "templates.fastapi_streaming",
@@ -85,20 +74,38 @@ def generate_code(
     framework: Literal["fastapi", "nextjs"] = "fastapi",
     streaming: bool = True,
     theme: Literal["light", "dark"] | None = None,
-    customizations: str | None = None,
+    bg_color: str | None = None,
+    text_color: str | None = None,
+    accent_color: str | None = None,
+    secondary_color: str | None = None,
+    border_color: str | None = None,
+    border_radius: int | None = None,
+    font_family: str | None = None,
 ) -> dict:
     """Generate paired server + client integration code for Gravity ads.
+
+    The generated code automatically matches the publisher's site theme.
+    Pass design tokens extracted from the publisher's CSS/Tailwind config
+    so the ad blends in natively. If no tokens are provided and theme is
+    not set, the ad uses sensible defaults for a light background.
 
     Args:
         format: One of the 25 ad format names (e.g. "floating", "card", "banner").
         framework: Server framework — "fastapi" or "nextjs".
         streaming: True for SSE streaming, False for JSON response.
-        theme: Optional "dark" to append dark mode styling recipe.
-        customizations: Natural language style description (informational, for LLM context).
+        theme: Preset — "dark" auto-fills dark palette tokens. Individual
+            color params override preset values when both are provided.
+        bg_color: Site background color (e.g. "#FFFFFF", "#1a1a2e").
+        text_color: Primary text color.
+        accent_color: Brand/accent color for CTA buttons.
+        secondary_color: Secondary/muted text color.
+        border_color: Border color.
+        border_radius: Border radius in pixels.
+        font_family: CSS font-family string.
 
     Returns:
         Dict with placement_id, style, type, framework, platform, performance,
-        server_code, and client_code.
+        server_code, client_code, and theme_applied (the resolved theme props).
     """
     if format not in STYLE_TYPE_MAP:
         return {
@@ -126,8 +133,31 @@ def generate_code(
         format_code=format_code,
     )
 
-    if theme == "dark":
-        client_code += DARK_MODE_SNIPPET
+    has_explicit_tokens = any(
+        v is not None
+        for v in [bg_color, text_color, accent_color, secondary_color,
+                   border_color, border_radius, font_family]
+    )
+
+    theme_result = None
+    if theme == "dark" or has_explicit_tokens:
+        base = dict(_DARK_PRESET) if theme == "dark" else {}
+        overrides = {
+            k: v for k, v in {
+                "bg_color": bg_color,
+                "text_color": text_color,
+                "accent_color": accent_color,
+                "secondary_color": secondary_color,
+                "border_color": border_color,
+                "border_radius": border_radius,
+                "font_family": font_family,
+            }.items() if v is not None
+        }
+        base.update(overrides)
+        theme_result = _build_theme(**base)
+        client_code += f"\n\n// Theme overrides (auto-matched to site):\n"
+        client_code += f"// Apply these props to <GravityAd /> above:\n"
+        client_code += theme_result["code_snippet"]
 
     _write_csv_row(
         {
@@ -141,7 +171,7 @@ def generate_code(
         }
     )
 
-    return {
+    result = {
         "placement_id": placement_id,
         "style": format,
         "type": style_type,
@@ -151,3 +181,10 @@ def generate_code(
         "server_code": server_code,
         "client_code": client_code,
     }
+    if theme_result:
+        result["theme_applied"] = {
+            "style": theme_result["style"],
+            "slotProps": theme_result["slotProps"],
+            "is_dark": theme_result["is_dark"],
+        }
+    return result

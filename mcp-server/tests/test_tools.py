@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from tools.build_theme import build_theme
 from tools.search_formats import search_formats
 from tools.generate_code import generate_code
 from tools.troubleshoot import troubleshoot
@@ -105,8 +106,33 @@ class TestGenerateCode:
 
     def test_dark_theme_includes_dark_styles(self):
         r = generate_code(format="card", framework="fastapi", streaming=False, theme="dark")
-        combined = r["client_code"]
-        assert "#18181B" in combined or "dark" in combined.lower()
+        assert "#18181B" in r["client_code"]
+        assert "theme_applied" in r
+        assert r["theme_applied"]["is_dark"] is True
+
+    def test_site_theme_tokens_applied(self):
+        r = generate_code(
+            format="card", framework="fastapi", streaming=False,
+            bg_color="#1a1a2e", accent_color="#E11D48", border_radius=16,
+        )
+        assert "theme_applied" in r
+        assert r["theme_applied"]["style"]["background"] == "#1a1a2e"
+        assert r["theme_applied"]["style"]["borderRadius"] == 16
+        assert r["theme_applied"]["slotProps"]["cta"]["style"]["background"] == "#E11D48"
+        assert r["theme_applied"]["is_dark"] is True
+        assert "#1a1a2e" in r["client_code"]
+
+    def test_site_tokens_override_dark_preset(self):
+        r = generate_code(
+            format="card", framework="fastapi", streaming=False,
+            theme="dark", accent_color="#E11D48",
+        )
+        assert r["theme_applied"]["slotProps"]["cta"]["style"]["background"] == "#E11D48"
+        assert r["theme_applied"]["style"]["background"] == "#18181B"
+
+    def test_no_theme_when_no_tokens(self):
+        r = generate_code(format="card", framework="fastapi", streaming=False)
+        assert "theme_applied" not in r
 
     def test_all_framework_streaming_combos(self):
         combos = [
@@ -147,3 +173,50 @@ class TestTroubleshoot:
                 for kw in keywords
             )
             assert reached, f"KB entry unreachable: {entry['symptom']}"
+
+
+# ── build_theme ─────────────────────────────────────────────────────────────
+
+
+class TestBuildTheme:
+    def test_dark_bg_detected(self):
+        r = build_theme(bg_color="#18181B")
+        assert r["is_dark"] is True
+        assert r["style"]["background"] == "#18181B"
+        assert r["slotProps"]["title"]["style"]["color"] == "#FAFAFA"
+
+    def test_light_bg_detected(self):
+        r = build_theme(bg_color="#FFFFFF")
+        assert r["is_dark"] is False
+        assert r["slotProps"]["title"]["style"]["color"] == "#18181B"
+
+    def test_accent_color_flows_to_cta(self):
+        r = build_theme(accent_color="#E11D48")
+        assert r["slotProps"]["cta"]["style"]["background"] == "#E11D48"
+
+    def test_border_radius_applied(self):
+        r = build_theme(border_radius=20)
+        assert r["style"]["borderRadius"] == 20
+
+    def test_font_family_applied(self):
+        r = build_theme(font_family="Inter, sans-serif")
+        assert r["style"]["fontFamily"] == "Inter, sans-serif"
+
+    def test_code_snippet_present(self):
+        r = build_theme(bg_color="#1E293B", accent_color="#F59E0B")
+        assert "style={{" in r["code_snippet"]
+        assert "slotProps={{" in r["code_snippet"]
+        assert "#1E293B" in r["code_snippet"]
+        assert "#F59E0B" in r["code_snippet"]
+
+    def test_defaults_when_no_args(self):
+        r = build_theme()
+        assert r["is_dark"] is False
+        assert r["style"]["background"] == "#FFFFFF"
+        assert "code_snippet" in r
+
+    def test_cta_text_contrast(self):
+        r = build_theme(accent_color="#FFFF00")
+        assert r["slotProps"]["cta"]["style"]["color"] == "#18181B"
+        r = build_theme(accent_color="#000080")
+        assert r["slotProps"]["cta"]["style"]["color"] == "#FAFAFA"
