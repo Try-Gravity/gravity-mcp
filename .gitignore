@@ -16,6 +16,7 @@ node_modules/
 .DS_Store
 .idea/
 .vscode/
+.cursor/
 
 # Test artifacts
 .pytest_cache/
