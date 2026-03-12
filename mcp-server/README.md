@@ -70,13 +70,16 @@ Add to `~/.cursor/mcp.json`:
 {
   "mcpServers": {
     "gravity": {
-      "url": "https://gravity-mcp-server-production-8e67.up.railway.app/sse"
+      "url": "https://gravity-mcp-server-production-8e67.up.railway.app/sse",
+      "headers": {
+        "Authorization": "Bearer your-api-key-here"
+      }
     }
   }
 }
 ```
 
-Restart Cursor to pick up changes. The remote server handles database persistence automatically.
+Get your API key from [trygravity.ai/dashboard](https://trygravity.ai/dashboard). Restart Cursor to pick up changes. The remote server handles database persistence automatically.
 
 ### Option B: Local (stdio)
 
@@ -110,7 +113,15 @@ If your MCP client doesn't support `url` connections directly, use the SSE trans
   "mcpServers": {
     "gravity": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://gravity-mcp-server-production-8e67.up.railway.app/sse"]
+      "args": [
+        "-y", "mcp-remote",
+        "https://gravity-mcp-server-production-8e67.up.railway.app/sse",
+        "--header",
+        "Authorization:${GRAVITY_API_KEY}"
+      ],
+      "env": {
+        "GRAVITY_API_KEY": "Bearer your-api-key-here"
+      }
     }
   }
 }
