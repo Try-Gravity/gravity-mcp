@@ -8,8 +8,6 @@ Usage:
 from __future__ import annotations
 
 import asyncio
-import csv
-from pathlib import Path
 
 from fastmcp import Client
 
@@ -236,18 +234,6 @@ async def smoke():
         for p in ("above_response", "below_response", "search_result", "center_page", "top_page", "bottom_page", "left_page", "right_page"):
             assert p in text, f"FAIL: placement-policy missing {p}"
         print("PASS: resource gravity://docs/placement-policy includes all placements")
-
-        # ── CSV verification ──────────────────────────────────────────────
-
-        # 23. CSV written
-        csv_path = Path(__file__).parent.parent / "data" / "placements.csv"
-        if csv_path.exists():
-            with open(csv_path) as f:
-                rows = list(csv.DictReader(f))
-            assert len(rows) >= 4, f"FAIL: expected at least 4 rows, got {len(rows)}"
-            print(f"PASS: placements.csv has {len(rows)} rows")
-        else:
-            print("SKIP: placements.csv not on host (expected with Docker named volume)")
 
         print("\n--- ALL SMOKE TESTS PASSED ---")
 

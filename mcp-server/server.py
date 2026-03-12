@@ -294,10 +294,11 @@ if __name__ == "__main__":
     import sys
 
     transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
-    logger.info("Starting Gravity MCP server v%s transport=%s", __version__, transport)
+    port = int(os.environ.get("PORT", 8000))
+    logger.info("Starting Gravity MCP server v%s transport=%s port=%d", __version__, transport, port)
     if transport == "http":
-        mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)
+        mcp.run(transport="http", host="0.0.0.0", port=port, stateless_http=True)
     elif transport == "sse":
-        mcp.run(transport="sse", host="0.0.0.0", port=8000)
+        mcp.run(transport="sse", host="0.0.0.0", port=port)
     else:
         mcp.run(transport="stdio")

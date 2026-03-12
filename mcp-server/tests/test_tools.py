@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import csv
-from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -13,15 +12,12 @@ from tools.generate_code import generate_code
 from tools.troubleshoot import troubleshoot
 from data.troubleshoot_kb import TROUBLESHOOT_KB
 
-CSV_PATH = Path(__file__).resolve().parent.parent / "data" / "placements.csv"
-
 
 @pytest.fixture(autouse=True)
-def _clean_csv():
-    """Remove placements.csv before each test so generate_code tests are isolated."""
-    CSV_PATH.unlink(missing_ok=True)
-    yield
-    CSV_PATH.unlink(missing_ok=True)
+def _mock_db():
+    """Prevent real DB writes during unit tests."""
+    with patch("tools.generate_code.write_placement"):
+        yield
 
 
 # ── search_formats ───────────────────────────────────────────────────────────
@@ -104,15 +100,23 @@ class TestGenerateCode:
         r = generate_code(format="card", placement_id="")
         assert "error" in r
 
-    def test_csv_write(self):
-        r = generate_code(format="banner", framework="nextjs", streaming=False, placement_id="main")
-        assert CSV_PATH.exists()
-        with open(CSV_PATH) as f:
-            rows = list(csv.DictReader(f))
-        assert len(rows) == 1
-        assert rows[0]["style"] == "banner"
-        assert rows[0]["framework"] == "nextjs"
-        assert rows[0]["platform"] == "web"
+    def test_placement_written(self):
+        with patch("tools.generate_code.write_placement") as mock_wp:
+            r = generate_code(format="banner", framework="nextjs", streaming=False, placement_id="main")
+            mock_wp.assert_called_once()
+            row = mock_wp.call_args[0][0]
+            assert row["style"] == "banner"
+            assert row["framework"] == "nextjs"
+            assert row["placement_id"] == "main"
+            assert row["placement"] == "below_response"
+            assert row["platform"] == "web"
+
+    def test_placement_position_written(self):
+        with patch("tools.generate_code.write_placement") as mock_wp:
+            r = generate_code(format="card", framework="fastapi", streaming=True, placement_id="top-ad", placement="above_response")
+            row = mock_wp.call_args[0][0]
+            assert row["placement"] == "above_response"
+            assert row["placement_id"] == "top-ad"
 
     def test_placement_id_in_server_code(self):
         r = generate_code(format="card", framework="fastapi", streaming=True, placement_id="main")
