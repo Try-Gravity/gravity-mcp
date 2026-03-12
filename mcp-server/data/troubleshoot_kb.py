@@ -16,7 +16,7 @@ TROUBLESHOOT_KB: list[dict[str, str]] = [
         "reference_url": "https://docs.trygravity.ai/quickstart#api-key",
     },
     {
-        "keywords": "test ads only,no revenue,not earning,test mode,production,test ads,fake ads,only test,sandbox,not real",
+        "keywords": "test ads only,no revenue,not earning,test mode,production,test ads,fake ads,only test,sandbox,not real,204,no content,204 no content,empty 204",
         "symptom": "Only receiving test ads — no real ads or revenue",
         "cause": "The `production` flag is not set to `true`. By default, the SDK serves test ads with no billing.",
         "fix": "Set `production: true` in your Gravity constructor:\n```\nconst gravity = new Gravity({ production: true });\n```\nOr in Python:\n```\ngravity = Gravity(production=True)\n```\nOnly enable this when you're ready to go live with real ads.",
@@ -58,10 +58,10 @@ TROUBLESHOOT_KB: list[dict[str, str]] = [
         "reference_url": "https://docs.trygravity.ai/react#click-tracking",
     },
     {
-        "keywords": "gravityContext,gravity_context,context missing,missing context,session,device,no context",
+        "keywords": "gravityContext,gravity_context,context missing,missing context,session,device,no context,422,validation error,sessionId,missing sessionId",
         "symptom": "gravity_context missing from request body",
         "cause": "The client is not calling `gravityContext()` and sending it in the request body. The server SDK reads `req.body.gravity_context` to extract session, user, and device information.",
-        "fix": "On the client side, call `gravityContext()` and include it in every chat request:\n```\nimport { gravityContext } from '@gravity-ai/js';\n\nconst body = {\n  messages,\n  gravity_context: gravityContext({\n    sessionId: 'your-session-id',\n    user: { userId: 'user-123' },\n  }),\n};\nfetch('/api/chat', { method: 'POST', body: JSON.stringify(body) });\n```",
+        "fix": "On the client side, call `gravityContext()` and include it in every chat request:\n```\nimport { gravityContext } from '@gravity-ai/js';\n\nconst body = {\n  messages,\n  gravity_context: gravityContext({\n    sessionId: 'your-session-id',\n    user: { userId: 'user-123' },\n  }),\n};\nfetch('/api/chat', { method: 'POST', body: JSON.stringify(body) });\n```\nIf you are NOT using the `@gravity-ai/js` SDK (e.g. vanilla HTML/JS), construct the object manually:\n```\nconst body = {\n  messages,\n  gravity_context: {\n    sessionId: 'your-session-id',\n    user: { userId: 'user-123' },\n  },\n};\n```\nThe `sessionId` must be a non-null string or the API will return a 422 validation error.",
         "reference_url": "https://docs.trygravity.ai/quickstart#client-context",
     },
     {
