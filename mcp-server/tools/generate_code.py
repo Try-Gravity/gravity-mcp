@@ -7,10 +7,32 @@ import re
 from datetime import datetime, timezone
 from typing import Literal
 
+import httpx
+
 from data.db import write_placement
 from data.style_type_map import STYLE_TYPE_MAP
 from resources.format_catalog import FORMAT_CATALOG
 from tools.build_theme import build_theme as _build_theme, _jsx_val
+
+logger = logging.getLogger(__name__)
+_ENGINE_BASE = "https://server.trygravity.ai"
+
+
+def _register_placement(api_key: str, placement_id: str, placement: str) -> str:
+    """Call the engine to register a placement. Returns publisher_id or empty string."""
+    try:
+        resp = httpx.post(
+            f"{_ENGINE_BASE}/api/v1/placements",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={"placement_id": placement_id, "placement": placement},
+            timeout=5.0,
+        )
+        if resp.status_code == 200:
+            return resp.json().get("publisher_id", "")
+    except Exception:
+        logger.debug("Engine placement registration failed", exc_info=True)
+    return ""
+
 
 _DARK_PRESET = {
     "bg_color": "#18181B",
@@ -55,9 +77,6 @@ def _load_template(framework: str, streaming: bool) -> tuple[str, str]:
 
     mod = importlib.import_module(module_path)
     return mod.SERVER_CODE, mod.CLIENT_CODE
-
-
-logger = logging.getLogger(__name__)
 
 
 def _render_style_prop(style: dict) -> str:
@@ -245,6 +264,10 @@ def generate_code(
         format_code=format_code,
     )
 
+    publisher_id = ""
+    if api_key:
+        publisher_id = _register_placement(api_key, placement_id, placement)
+
     write_placement(
         {
             "placement_id": placement_id,
@@ -255,6 +278,7 @@ def generate_code(
             "platform": "web",
             "performance": "",
             "publisher_key_hash": publisher_key_hash,
+            "publisher_id": publisher_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
     )
