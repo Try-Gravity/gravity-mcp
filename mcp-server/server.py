@@ -31,6 +31,11 @@ logger = logging.getLogger("gravity")
 for _noisy in ("mcp", "fastmcp", "httpx", "sse_starlette", "uvicorn", "watchfiles"):
     logging.getLogger(_noisy).setLevel(logging.WARNING)
 
+# Suppress ClosedResourceError tracebacks from the MCP SDK's streamable HTTP
+# transport. These fire when a client disconnects mid-request — harmless in
+# stateless mode but extremely noisy. Upstream fix: python-sdk PR #2072.
+logging.getLogger("mcp.server.streamable_http_manager").setLevel(logging.CRITICAL)
+
 
 def _client_id() -> str:
     """Derive a rate-limit identity from the publisher API key, or 'anonymous'."""
