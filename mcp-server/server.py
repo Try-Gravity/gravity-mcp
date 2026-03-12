@@ -28,6 +28,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger("gravity")
 
+for _noisy in ("mcp", "fastmcp", "httpx", "sse_starlette", "uvicorn", "watchfiles"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
+
 def _client_id() -> str:
     """Derive a rate-limit identity from the publisher API key, or 'anonymous'."""
     key = get_api_key()
@@ -333,9 +337,10 @@ if __name__ == "__main__":
     transport = sys.argv[1] if len(sys.argv) > 1 else "stdio"
     port = int(os.environ.get("PORT", 8000))
     logger.info("Starting Gravity MCP server v%s transport=%s port=%d", __version__, transport, port)
+    _uvi_cfg = {"log_level": "warning", "access_log": False}
     if transport == "http":
-        mcp.run(transport="http", host="0.0.0.0", port=port, stateless_http=True)
+        mcp.run(transport="http", host="0.0.0.0", port=port, stateless_http=True, uvicorn_config=_uvi_cfg)
     elif transport == "sse":
-        mcp.run(transport="sse", host="0.0.0.0", port=port)
+        mcp.run(transport="sse", host="0.0.0.0", port=port, uvicorn_config=_uvi_cfg)
     else:
         mcp.run(transport="stdio")
