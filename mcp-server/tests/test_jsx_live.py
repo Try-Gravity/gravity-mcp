@@ -21,7 +21,7 @@ import time
 from fastmcp import Client
 from fastmcp.exceptions import ToolError
 
-SERVER_URL = "http://localhost:8000/sse"
+SERVER_URL = "http://localhost:8000/mcp"
 
 ALL_FORMATS = [
     "card", "floating", "glass", "outlined", "tinted", "accent", "embed",

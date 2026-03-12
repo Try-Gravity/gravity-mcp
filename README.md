@@ -26,7 +26,7 @@ uv run python server.py          # stdio transport (default)
 ### Native (HTTP — for remote clients)
 
 ```bash
-uv run python server.py sse      # SSE on port 8000
+uv run python server.py http     # Streamable HTTP on port 8000
 ```
 
 ### Docker
@@ -71,13 +71,16 @@ Add to `~/.cursor/mcp.json` (global) or `<project>/.cursor/mcp.json` (project-sc
 {
   "mcpServers": {
     "gravity": {
-      "url": "https://gravity-mcp-server-production-8e67.up.railway.app/sse"
+      "url": "https://gravity-mcp-server-production-8e67.up.railway.app/mcp",
+      "headers": {
+        "Authorization": "Bearer your-api-key-here"
+      }
     }
   }
 }
 ```
 
-No cloning, no dependencies — just add the URL and restart Cursor.
+Get your API key from [trygravity.ai/dashboard](https://trygravity.ai/dashboard). No cloning, no dependencies — just add the URL and restart Cursor.
 
 #### Option B: stdio (local)
 
@@ -104,7 +107,7 @@ Add to your `mcp.json`:
 
 Replace the two `/absolute/path/to/...` values with the real paths from the prerequisite step. Get your API key from [trygravity.ai/dashboard](https://trygravity.ai/dashboard). Requires `docker compose up db -d` for the local Postgres.
 
-#### Option C: SSE (local Docker)
+#### Option C: HTTP (local Docker)
 
 Start the server first:
 
@@ -118,7 +121,7 @@ Then add to your `mcp.json`:
 {
   "mcpServers": {
     "gravity": {
-      "url": "http://localhost:8000/sse"
+      "url": "http://localhost:8000/mcp"
     }
   }
 }
@@ -133,8 +136,8 @@ Restart Cursor after editing the config. The Gravity tools will appear in the MC
 #### Option A: Remote (quickest — no local setup)
 
 ```bash
-claude mcp add gravity --transport sse \
-  --url https://gravity-mcp-server-production-8e67.up.railway.app/sse
+claude mcp add gravity --transport http \
+  --url https://gravity-mcp-server-production-8e67.up.railway.app/mcp
 ```
 
 #### Option B: CLI (local)
@@ -173,16 +176,16 @@ Add to `~/.claude.json` (global) or `<project>/.mcp.json` (project-scoped):
 
 ### Other MCP clients
 
-Any client that supports SSE transport can connect to the hosted server:
+Any client that supports streamable HTTP transport can connect to the hosted server:
 
 ```
-https://gravity-mcp-server-production-8e67.up.railway.app/sse
+https://gravity-mcp-server-production-8e67.up.railway.app/mcp
 ```
 
 If your client only supports stdio, use `mcp-remote` as a bridge:
 
 ```bash
-npx -y mcp-remote https://gravity-mcp-server-production-8e67.up.railway.app/sse
+npx -y mcp-remote https://gravity-mcp-server-production-8e67.up.railway.app/mcp
 ```
 
 ---
@@ -213,7 +216,7 @@ cd mcp-server
 uv run pytest tests/test_tools.py -v
 
 # Smoke tests (start server first on port 8000)
-uv run python server.py sse &
+uv run python server.py http &
 uv run python tests/smoke_test.py
 ```
 
@@ -233,7 +236,7 @@ https://gravity-mcp-server-production-8e67.up.railway.app
 |----------|-------------|
 | `/health` | Health check — returns `OK` |
 | `/version` | Returns `{"version": "0.2.0"}` |
-| `/sse` | SSE transport for MCP clients |
+| `/mcp` | Streamable HTTP transport for MCP clients |
 
 ### Deploy your own instance
 
@@ -242,7 +245,7 @@ https://gravity-mcp-server-production-8e67.up.railway.app
 3. Set **Root Directory** to `mcp-server`
 4. Add a **PostgreSQL** service — Railway auto-injects `DATABASE_URL`
 5. Deploy — the `placements` table is auto-created on first request
-6. Your MCP endpoint is `https://<app>.up.railway.app/sse`
+6. Your MCP endpoint is `https://<app>.up.railway.app/mcp`
 
 ### Redeploy from CLI
 
