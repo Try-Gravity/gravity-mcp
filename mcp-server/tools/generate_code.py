@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import csv
-import fcntl
+import logging
 import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
+
+from filelock import FileLock
 
 from data.style_type_map import STYLE_TYPE_MAP
 from resources.format_catalog import FORMAT_CATALOG
@@ -63,19 +65,42 @@ def _load_template(framework: str, streaming: bool) -> tuple[str, str]:
     return mod.SERVER_CODE, mod.CLIENT_CODE
 
 
+_CSV_LOCK = FileLock(str(_CSV_PATH) + ".lock", timeout=5)
+_CSV_MAX_ROWS = 10_000
+
+logger = logging.getLogger(__name__)
+
+
 def _write_csv_row(row: dict[str, str]) -> None:
-    """Append a row to placements.csv with file locking."""
+    """Append a row to placements.csv with cross-platform file locking.
+
+    Automatically rotates the CSV when it exceeds _CSV_MAX_ROWS to prevent
+    unbounded growth in long-running deployments.
+    """
     _DATA_DIR.mkdir(parents=True, exist_ok=True)
-    file_exists = _CSV_PATH.exists()
-    with open(_CSV_PATH, "a", newline="") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        try:
+    with _CSV_LOCK:
+        _maybe_rotate_csv()
+        file_exists = _CSV_PATH.exists()
+        with open(_CSV_PATH, "a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=_CSV_FIELDS)
             if not file_exists:
                 writer.writeheader()
             writer.writerow(row)
-        finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def _maybe_rotate_csv() -> None:
+    """Rename placements.csv to placements.csv.bak when it exceeds the row cap."""
+    if not _CSV_PATH.exists():
+        return
+    try:
+        with open(_CSV_PATH) as f:
+            row_count = sum(1 for _ in f) - 1  # subtract header
+        if row_count >= _CSV_MAX_ROWS:
+            bak = _CSV_PATH.with_suffix(".csv.bak")
+            _CSV_PATH.rename(bak)
+            logger.info("Rotated placements.csv (%d rows) -> %s", row_count, bak.name)
+    except OSError:
+        pass
 
 
 def _strip_jsx_prop(code: str, prop_name: str) -> str:
