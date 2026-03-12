@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import uuid
 from pathlib import Path
 
 import pytest
@@ -81,20 +80,32 @@ class TestSearchFormats:
 
 class TestGenerateCode:
     def test_returns_paired_code(self):
-        r = generate_code(format="floating", framework="fastapi", streaming=True)
+        r = generate_code(format="floating", framework="fastapi", streaming=True, placement_id="main")
         assert "server_code" in r
         assert "client_code" in r
         assert len(r["server_code"]) > 50
         assert len(r["client_code"]) > 50
 
-    def test_placement_id_is_uuid(self):
-        r = generate_code(format="card", framework="fastapi", streaming=True)
-        pid = r["placement_id"]
-        parsed = uuid.UUID(pid, version=4)
-        assert str(parsed) == pid
+    def test_placement_id_is_required(self):
+        with pytest.raises(TypeError):
+            generate_code(format="card", framework="fastapi", streaming=True)
+
+    def test_custom_placement_id_passthrough(self):
+        r = generate_code(format="card", framework="fastapi", streaming=True, placement_id="sidebar-1")
+        assert r["placement_id"] == "sidebar-1"
+        assert "sidebar-1" in r["server_code"]
+
+    def test_invalid_placement_id_rejected(self):
+        r = generate_code(format="card", placement_id="has spaces!")
+        assert "error" in r
+        assert "placement_id" in r["error"]
+
+    def test_empty_placement_id_rejected(self):
+        r = generate_code(format="card", placement_id="")
+        assert "error" in r
 
     def test_csv_write(self):
-        r = generate_code(format="banner", framework="nextjs", streaming=False)
+        r = generate_code(format="banner", framework="nextjs", streaming=False, placement_id="main")
         assert CSV_PATH.exists()
         with open(CSV_PATH) as f:
             rows = list(csv.DictReader(f))
@@ -104,22 +115,22 @@ class TestGenerateCode:
         assert rows[0]["platform"] == "web"
 
     def test_placement_id_in_server_code(self):
-        r = generate_code(format="card", framework="fastapi", streaming=True)
+        r = generate_code(format="card", framework="fastapi", streaming=True, placement_id="main")
         assert r["placement_id"] in r["server_code"]
 
     def test_unknown_format_rejected(self):
-        r = generate_code(format="nonexistent", framework="fastapi", streaming=True)
+        r = generate_code(format="nonexistent", framework="fastapi", streaming=True, placement_id="main")
         assert "error" in r
 
     def test_dark_theme_includes_dark_styles(self):
-        r = generate_code(format="card", framework="fastapi", streaming=False, theme="dark")
+        r = generate_code(format="card", framework="fastapi", streaming=False, placement_id="main", theme="dark")
         assert "#18181B" in r["client_code"]
         assert "theme_applied" in r
         assert r["theme_applied"]["is_dark"] is True
 
     def test_site_theme_tokens_applied(self):
         r = generate_code(
-            format="card", framework="fastapi", streaming=False,
+            format="card", framework="fastapi", streaming=False, placement_id="main",
             bg_color="#1a1a2e", accent_color="#E11D48", border_radius=16,
         )
         assert "theme_applied" in r
@@ -131,14 +142,14 @@ class TestGenerateCode:
 
     def test_site_tokens_override_dark_preset(self):
         r = generate_code(
-            format="card", framework="fastapi", streaming=False,
+            format="card", framework="fastapi", streaming=False, placement_id="main",
             theme="dark", accent_color="#E11D48",
         )
         assert r["theme_applied"]["slotProps"]["cta"]["style"]["background"] == "#E11D48"
         assert r["theme_applied"]["style"]["background"] == "#18181B"
 
     def test_no_theme_when_no_tokens(self):
-        r = generate_code(format="card", framework="fastapi", streaming=False)
+        r = generate_code(format="card", framework="fastapi", streaming=False, placement_id="main")
         assert "theme_applied" not in r
 
     def test_all_framework_streaming_combos(self):
@@ -149,14 +160,14 @@ class TestGenerateCode:
             ("nextjs", False),
         ]
         for framework, streaming in combos:
-            r = generate_code(format="card", framework=framework, streaming=streaming)
+            r = generate_code(format="card", framework=framework, streaming=streaming, placement_id="main")
             assert "server_code" in r, f"{framework}/streaming={streaming} missing server_code"
             assert "client_code" in r, f"{framework}/streaming={streaming} missing client_code"
             assert "placement_id" in r, f"{framework}/streaming={streaming} missing placement_id"
 
     def test_theme_merged_into_jsx_not_comments(self):
         r = generate_code(
-            format="card", framework="fastapi", streaming=False,
+            format="card", framework="fastapi", streaming=False, placement_id="main",
             bg_color="#0f172a", accent_color="#38bdf8",
         )
         assert "// Theme overrides" not in r["client_code"]
@@ -166,7 +177,7 @@ class TestGenerateCode:
 
     def test_theme_preserves_format_layout_props(self):
         r = generate_code(
-            format="notification", framework="fastapi", streaming=False,
+            format="notification", framework="fastapi", streaming=False, placement_id="main",
             bg_color="#1a1a2e",
         )
         assert "maxWidth" in r["client_code"]
@@ -174,19 +185,25 @@ class TestGenerateCode:
 
     def test_placement_param_in_server_code(self):
         r = generate_code(
-            format="card", framework="fastapi", streaming=True,
+            format="card", framework="fastapi", streaming=True, placement_id="main",
             placement="above_response",
         )
         assert "above_response" in r["server_code"]
         assert "below_response" not in r["server_code"]
 
     def test_invalid_placement_rejected(self):
-        r = generate_code(format="card", placement="somewhere_random")
+        r = generate_code(format="card", placement_id="main", placement="somewhere_random")
         assert "error" in r
         assert "Invalid placement" in r["error"]
 
+    def test_page_placements_accepted(self):
+        for p in ("search_result", "center_page", "top_page", "bottom_page", "left_page", "right_page"):
+            r = generate_code(format="card", placement_id="main", placement=p)
+            assert "error" not in r, f"placement={p} should be valid"
+            assert p in r["server_code"]
+
     def test_default_placement_is_below_response(self):
-        r = generate_code(format="card", framework="fastapi", streaming=True)
+        r = generate_code(format="card", framework="fastapi", streaming=True, placement_id="main")
         assert "below_response" in r["server_code"]
 
 

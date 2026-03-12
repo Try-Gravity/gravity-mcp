@@ -410,16 +410,25 @@ fetch('/api/chat', { method: 'POST', body: JSON.stringify(body) });
 
 ```typescript
 export type Placement =
+  // Relative to an individual AI response
   | 'above_response'
   | 'below_response'
   | 'inline_response'
   | 'left_response'
-  | 'right_response';
+  | 'right_response'
+  // Relative to a search result
+  | 'search_result'
+  // Relative to the full page
+  | 'center_page'
+  | 'top_page'
+  | 'bottom_page'
+  | 'left_page'
+  | 'right_page';
 ```
 
 ## Rules
 
-1. **Adjacent to AI content only** — Ads must be placed next to AI-generated responses, not in static page areas.
+1. **Adjacent to AI content** — Response-relative placements sit next to AI-generated responses. Page-relative placements can appear in broader page layouts.
 2. **1-10 placements per request** — Each `getAds()` call accepts an array of 1-10 placement objects.
 3. **Unique placement_id** — Each placement needs a unique `placement_id` for tracking and analytics.
 
