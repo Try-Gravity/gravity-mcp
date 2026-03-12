@@ -53,7 +53,11 @@ def search_formats(
     category: str | None = None,
     detail: Literal["names", "summary", "full"] = "summary",
 ) -> list:
-    """Search available Gravity ad formats.
+    """Search the Gravity ad format catalog. Returns format metadata only — no code.
+
+    This tool ONLY searches and filters the format catalog. It does NOT accept
+    framework, streaming, placement, or theme parameters — use `generate_code`
+    for framework-specific integration code, and `build_theme` for styling.
 
     Args:
         query: Keyword filter (substring match on name + description).
@@ -75,11 +79,14 @@ def build_theme(
     border_radius: int | None = None,
     font_family: str | None = None,
 ) -> dict:
-    """Build GravityAd style + slotProps that match the publisher's site theme.
+    """Preview a resolved GravityAd style + slotProps that match the publisher's site theme.
 
     Pass design tokens extracted from the publisher's CSS, Tailwind config,
     or component styles. Omitted values are derived automatically — just
     passing bg_color is enough for a coherent theme.
+
+    This tool ONLY previews styling. It does NOT generate integration code —
+    use `generate_code` for that (it accepts the same theme params directly).
 
     Args:
         bg_color: Site background color (e.g. "#FFFFFF", "#1a1a2e"). Drives dark/light detection.
@@ -121,6 +128,10 @@ def generate_code(
 ) -> dict:
     """Generate paired server + client integration code for Gravity ads.
 
+    This is the ONLY tool that accepts `framework`, `streaming`, `placement`,
+    and `placement_id`. Use `search_formats` first to discover available formats,
+    then call this tool with the chosen format and framework.
+
     Always pass site design tokens so the ad blends in natively. At minimum
     pass bg_color — all other colors are derived automatically.
 
@@ -129,8 +140,8 @@ def generate_code(
     identifier used for analytics — it must stay consistent across regenerations.
 
     Args:
-        format: Ad format name (e.g. "floating", "card", "banner").
-        framework: "fastapi" or "nextjs".
+        format: Ad format name from `search_formats` (e.g. "floating", "card", "banner").
+        framework: "fastapi" or "nextjs". Only accepted by this tool — not search_formats.
         streaming: True for SSE streaming, False for JSON response.
         placement: Ad position. One of: above_response, below_response, inline_response, left_response, right_response, search_result, center_page, top_page, bottom_page, left_page, right_page.
         placement_id: Stable tracking ID for this ad slot chosen by the publisher (e.g. "main", "sidebar-1"). Must be unique per slot. Alphanumeric, hyphens, underscores, max 64 chars.
@@ -176,6 +187,9 @@ def generate_code(
 @mcp.tool()
 def troubleshoot(symptom: str) -> dict:
     """Diagnose a Gravity ad integration issue.
+
+    Pass a symptom and get back causes, fixes, and code examples. This tool
+    does NOT accept format, framework, or theme parameters — only `symptom`.
 
     Args:
         symptom: Description of the problem (e.g. "no ads showing", "401", "CORS error").
