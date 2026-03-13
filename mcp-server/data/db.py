@@ -35,7 +35,8 @@ _INSERT_SQL = """
 INSERT INTO placements (placement_id, placement, style, type, framework, platform, performance, publisher_key_hash, publisher_id, created_at)
 VALUES (%(placement_id)s, %(placement)s, %(style)s, %(type)s, %(framework)s, %(platform)s, %(performance)s, %(publisher_key_hash)s, %(publisher_id)s, %(created_at)s)
 ON CONFLICT (placement_id) DO UPDATE
-SET publisher_id = EXCLUDED.publisher_id,
+SET publisher_id = CASE WHEN EXCLUDED.publisher_id <> '' THEN EXCLUDED.publisher_id
+                        ELSE placements.publisher_id END,
     placement = EXCLUDED.placement
 """
 
