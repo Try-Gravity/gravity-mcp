@@ -16,8 +16,9 @@ from data.troubleshoot_kb import TROUBLESHOOT_KB
 
 @pytest.fixture(autouse=True)
 def _mock_db():
-    """Prevent real DB writes during unit tests."""
-    with patch("tools.generate_code.write_placement"):
+    """Prevent real DB writes and outbound HTTP during unit tests."""
+    with patch("tools.generate_code.write_placement"), \
+         patch("tools.generate_code._register_placement", return_value=""):
         yield
 
 
