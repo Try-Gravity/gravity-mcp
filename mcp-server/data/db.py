@@ -26,8 +26,11 @@ CREATE TABLE IF NOT EXISTS placements (
 );
 """
 
-_MIGRATE_SQL = """
+_MIGRATE_KEY_HASH_SQL = """
 ALTER TABLE placements ADD COLUMN IF NOT EXISTS publisher_key_hash TEXT DEFAULT '';
+"""
+
+_MIGRATE_PUBLISHER_ID_SQL = """
 ALTER TABLE placements ADD COLUMN IF NOT EXISTS publisher_id TEXT DEFAULT '';
 """
 
@@ -54,7 +57,8 @@ def _ensure_table(conn: psycopg.Connection) -> None:
     global _table_ready
     if not _table_ready:
         conn.execute(_ENSURE_TABLE_SQL)
-        conn.execute(_MIGRATE_SQL)
+        conn.execute(_MIGRATE_KEY_HASH_SQL)
+        conn.execute(_MIGRATE_PUBLISHER_ID_SQL)
         _table_ready = True
 
 
